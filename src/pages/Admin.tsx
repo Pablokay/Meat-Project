@@ -88,6 +88,8 @@ export default function Admin({ onLogout }: AdminProps) {
   const [commentFieldLabel, setCommentFieldLabel] = useState('Additional Comments');
   const [customerCarePhone, setCustomerCarePhone] = useState('');
   const [customerCareEmail, setCustomerCareEmail] = useState('');
+  const [preparationTypes, setPreparationTypes] = useState<string[]>(['Fresh', 'Roasted']);
+  const [newPreparationType, setNewPreparationType] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => { fetchAll(); }, []);
@@ -113,10 +115,18 @@ export default function Admin({ onLogout }: AdminProps) {
     const labelSetting = settings.find((s: AdminSetting) => s.key === 'comment_field_label');
     const phoneSetting = settings.find((s: AdminSetting) => s.key === 'customer_care_phone');
     const emailSetting = settings.find((s: AdminSetting) => s.key === 'customer_care_email');
+    const prepSetting = settings.find((s: AdminSetting) => s.key === 'preparation_types');
     if (commentSetting) setCommentFieldEnabled(commentSetting.value === 'true');
     if (labelSetting) setCommentFieldLabel(labelSetting.value || 'Additional Comments');
     if (phoneSetting) setCustomerCarePhone(phoneSetting.value);
     if (emailSetting) setCustomerCareEmail(emailSetting.value);
+    if (prepSetting) {
+      try {
+        setPreparationTypes(JSON.parse(prepSetting.value));
+      } catch {
+        setPreparationTypes(['Fresh', 'Roasted']);
+      }
+    }
 
     setLoading(false);
   }
@@ -334,6 +344,7 @@ export default function Admin({ onLogout }: AdminProps) {
       { key: 'comment_field_label', value: commentFieldLabel },
       { key: 'customer_care_phone', value: customerCarePhone },
       { key: 'customer_care_email', value: customerCareEmail },
+      { key: 'preparation_types', value: JSON.stringify(preparationTypes) },
     ], { onConflict: 'key' });
     setSavingSettings(false);
   }
@@ -849,6 +860,66 @@ export default function Admin({ onLogout }: AdminProps) {
                   </div>
                 </div>
                 <button onClick={saveSettings} disabled={savingSettings} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+                  {savingSettings ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={14} />}
+                  Save All Settings
+                </button>
+              </div>
+            </div>
+
+            {/* Preparation Types */}
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4"><Settings size={18} />Preparation Types</h2>
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+                <p className="text-xs text-gray-500">Manage the available preparation options customers can choose from when ordering.</p>
+                
+                {/* Add New Preparation Type */}
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newPreparationType} 
+                    onChange={e => setNewPreparationType(e.target.value)} 
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newPreparationType.trim() && !preparationTypes.includes(newPreparationType.trim())) {
+                        setPreparationTypes([...preparationTypes, newPreparationType.trim()]);
+                        setNewPreparationType('');
+                      }
+                    }}
+                    placeholder="Add new preparation type (e.g., Fry, Smoked, etc.)" 
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" 
+                  />
+                  <button 
+                    onClick={() => {
+                      if (newPreparationType.trim() && !preparationTypes.includes(newPreparationType.trim())) {
+                        setPreparationTypes([...preparationTypes, newPreparationType.trim()]);
+                        setNewPreparationType('');
+                      }
+                    }}
+                    className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    <Plus size={14} className="inline" />
+                  </button>
+                </div>
+
+                {/* List of Preparation Types */}
+                <div className="flex flex-wrap gap-2">
+                  {preparationTypes.map(type => (
+                    <div key={type} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-semibold text-blue-700">{type}</span>
+                      <button
+                        onClick={() => setPreparationTypes(preparationTypes.filter(t => t !== type))}
+                        className="text-blue-400 hover:text-red-600 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {preparationTypes.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No preparation types added yet.</p>
+                )}
+
+                <button onClick={saveSettings} disabled={savingSettings} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors w-full">
                   {savingSettings ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={14} />}
                   Save All Settings
                 </button>

@@ -6,10 +6,11 @@ type HeaderProps = {
   currentPage: 'shop' | 'track';
   onNavigate: (page: 'shop' | 'track' | 'admin' | 'user') => void;
   userData?: { id: string; email: string; name: string } | null;
+  userType?: 'guest' | 'registered' | null;
   onUserLogout?: () => void;
 };
 
-export default function Header({ currentPage, onNavigate, userData, onUserLogout }: HeaderProps) {
+export default function Header({ currentPage, onNavigate, userData, userType, onUserLogout }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [carePhone, setCarePhone] = useState('');
   const [careEmail, setCareEmail] = useState('');
@@ -82,7 +83,20 @@ export default function Header({ currentPage, onNavigate, userData, onUserLogout
             </nav>
 
             <div className="flex items-center gap-2">
-              {userData ? (
+              {userType === 'guest' ? (
+                <div className="hidden md:flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      onUserLogout?.();
+                      setMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <User size={16} />
+                    Guest Checkout
+                  </button>
+                </div>
+              ) : userData ? (
                 <div className="hidden md:flex items-center gap-2">
                   <button
                     onClick={() => onNavigate('user')}
@@ -160,6 +174,16 @@ export default function Header({ currentPage, onNavigate, userData, onUserLogout
                   <LogOut size={14} className="inline mr-2" />Logout
                 </button>
               </>
+            ) : userType === 'guest' ? (
+              <button
+                onClick={() => {
+                  onUserLogout?.();
+                  setMenuOpen(false);
+                }}
+                className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-amber-600 hover:bg-amber-50"
+              >
+                <User size={14} className="inline mr-2" />End Guest Checkout
+              </button>
             ) : (
               <button
                 onClick={() => { onNavigate('user'); setMenuOpen(false); }}

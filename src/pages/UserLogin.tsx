@@ -3,9 +3,10 @@ import { Mail, Lock, Eye, EyeOff, User, ShoppingBag, AlertCircle, CheckCircle } 
 
 type UserLoginProps = {
   onLogin: (userData: { id: string; email: string; name: string }) => void;
+  onGuestCheckout?: () => void;
 };
 
-export default function UserLogin({ onLogin }: UserLoginProps) {
+export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -176,6 +177,14 @@ export default function UserLogin({ onLogin }: UserLoginProps) {
               Create Account
             </button>
           </div>
+
+          {/* Guest Checkout Button */}
+          <button
+            onClick={onGuestCheckout}
+            className="w-full py-2.5 rounded-lg font-semibold transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 mb-4 text-sm"
+          >
+            Continue as Guest
+          </button>
 
           {/* Login Form */}
           {mode === 'login' && (

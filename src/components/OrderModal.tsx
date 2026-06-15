@@ -29,7 +29,8 @@ export default function OrderModal({ livestock, onClose, onSuccess }: OrderModal
   const [step, setStep] = useState<Step>('quantity');
   const [unit, setUnit] = useState<'kg' | 'portion'>(livestock.unit_options.includes('kg') ? 'kg' : 'portion');
   const [quantity, setQuantity] = useState(1);
-  const [preparationType, setPreparationType] = useState<'fresh' | 'roasted'>('fresh');
+  const [preparationType, setPreparationType] = useState<string>('Fresh');
+  const [availablePreparationTypes, setAvailablePreparationTypes] = useState<string[]>(['Fresh', 'Roasted']);
   const [portionSize, setPortionSize] = useState<'full' | 'half' | 'quarter'>('full');
   const [customerComment, setCustomerComment] = useState('');
   const [commentEnabled, setCommentEnabled] = useState(true);
@@ -65,12 +66,22 @@ export default function OrderModal({ livestock, onClose, onSuccess }: OrderModal
   useEffect(() => {
     supabase.from('delivery_slots').select('*').gte('slot_date', new Date().toISOString().split('T')[0]).eq('is_active', true).order('slot_date').then(({ data }) => setSlots(data ?? []));
     supabase.from('bank_accounts').select('*').eq('is_active', true).then(({ data }) => setBanks(data ?? []));
-    supabase.from('admin_settings').select('*').in('key', ['comment_field_enabled', 'comment_field_label']).then(({ data }) => {
+    supabase.from('admin_settings').select('*').in('key', ['comment_field_enabled', 'comment_field_label', 'preparation_types']).then(({ data }) => {
       if (data) {
         const ce = data.find((s: AdminSetting) => s.key === 'comment_field_enabled');
         const cl = data.find((s: AdminSetting) => s.key === 'comment_field_label');
+        const ps = data.find((s: AdminSetting) => s.key === 'preparation_types');
         if (ce) setCommentEnabled(ce.value === 'true');
         if (cl) setCommentLabel(cl.value || 'Additional Comments');
+        if (ps) {
+          try {
+            const types = JSON.parse(ps.value);
+            setAvailablePreparationTypes(types);
+            setPreparationType(types[0] || 'Fresh');
+          } catch {
+            setAvailablePreparationTypes(['Fresh', 'Roasted']);
+          }
+        }
       }
     });
   }, []);
@@ -253,15 +264,27 @@ export default function OrderModal({ livestock, onClose, onSuccess }: OrderModal
               )}
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">Preparation Type</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setPreparationType('fresh')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${preparationType === 'fresh' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <Snowflake size={20} className={preparationType === 'fresh' ? 'text-blue-600' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${preparationType === 'fresh' ? 'text-blue-700' : 'text-gray-600'}`}>Fresh</span>
-                  </button>
-                  <button onClick={() => setPreparationType('roasted')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${preparationType === 'roasted' ? 'border-orange-600 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <Flame size={20} className={preparationType === 'roasted' ? 'text-orange-600' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${preparationType === 'roasted' ? 'text-orange-700' : 'text-gray-600'}`}>Roasted</span>
-                  </button>
+                <div className={`grid gap-3 ${availablePreparationTypes.length === 2 ? 'grid-cols-2' : availablePreparationTypes.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'}`}>
+                  {availablePreparationTypes.map((type) => {
+                    const getIcon = () => {
+                      if (type.toLowerCase() === 'fresh') return <Snowflake size={20} />;
+                      if (type.toLowerCase() === 'roasted') return <Flame size={20} />;
+                      return <span className="text-lg">🍖</span>;
+                    };
+                    const isSelected = preparationType === type;
+                    return (
+                      <button 
+                        key={type}
+                        onClick={() => setPreparationType(type)} 
+                        className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      >
+                        <div className={isSelected ? 'text-blue-600' : 'text-gray-400'}>
+                          {getIcon()}
+                        </div>
+                        <span className={`text-sm font-bold ${isSelected ? 'text-blue-700' : 'text-gray-600'}`}>{type}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {commentEnabled && (

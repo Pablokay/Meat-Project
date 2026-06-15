@@ -10,11 +10,13 @@ import UserDashboard from './pages/UserDashboard';
 
 type Page = 'shop' | 'track' | 'admin' | 'admin-login' | 'user-login' | 'user-dashboard';
 type UserData = { id: string; email: string; name: string } | null;
+type UserType = 'guest' | 'registered' | null;
 
 export default function App() {
   const [page, setPage] = useState<Page>('shop');
   const [isAdmin, setIsAdmin] = useState(false);
   const [userData, setUserData] = useState<UserData>(null);
+  const [userType, setUserType] = useState<UserType>(null);
 
   useEffect(() => {
     // Check for existing user session
@@ -71,13 +73,21 @@ export default function App() {
 
   const handleUserLogin = (data: UserData) => {
     setUserData(data);
+    setUserType('registered');
     setPage('user-dashboard');
     window.location.hash = 'user';
+  };
+
+  const handleGuestCheckout = () => {
+    setUserType('guest');
+    setPage('shop');
+    window.location.hash = '';
   };
 
   const handleUserLogout = () => {
     sessionStorage.removeItem('user_auth');
     setUserData(null);
+    setUserType(null);
     setPage('shop');
     window.location.hash = '';
   };
@@ -91,7 +101,7 @@ export default function App() {
   }
 
   if (page === 'user-login') {
-    return <UserLogin onLogin={handleUserLogin} />;
+    return <UserLogin onLogin={handleUserLogin} onGuestCheckout={handleGuestCheckout} />;
   }
 
   if (page === 'user-dashboard' && userData) {
@@ -100,7 +110,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header currentPage={page === 'track' ? 'track' : 'shop'} onNavigate={navigate} userData={userData} onUserLogout={handleUserLogout} />
+      <Header currentPage={page === 'track' ? 'track' : 'shop'} onNavigate={navigate} userData={userData} userType={userType} onUserLogout={handleUserLogout} />
       <main className="flex-1">
         {page === 'track' ? <TrackOrder /> : <Shop onNavigateToTrack={() => navigate('track')} />}
       </main>
