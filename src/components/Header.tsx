@@ -1,13 +1,15 @@
-import { Beef, Search, Menu, X, Phone, Mail } from 'lucide-react';
+import { Beef, Search, Menu, X, Phone, Mail, LogOut, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase, type AdminSetting } from '../lib/supabase';
 
 type HeaderProps = {
   currentPage: 'shop' | 'track';
-  onNavigate: (page: 'shop' | 'track' | 'admin') => void;
+  onNavigate: (page: 'shop' | 'track' | 'admin' | 'user') => void;
+  userData?: { id: string; email: string; name: string } | null;
+  onUserLogout?: () => void;
 };
 
-export default function Header({ currentPage, onNavigate }: HeaderProps) {
+export default function Header({ currentPage, onNavigate, userData, onUserLogout }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [carePhone, setCarePhone] = useState('');
   const [careEmail, setCareEmail] = useState('');
@@ -79,17 +81,49 @@ export default function Header({ currentPage, onNavigate }: HeaderProps) {
               </button>
             </nav>
 
-            <div className="flex items-center gap-2 md:hidden">
-              <button
-                onClick={() => onNavigate('track')}
-                className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                <Search size={14} />
-                Track
-              </button>
-              <button className="p-2 text-gray-600" onClick={() => setMenuOpen(!menuOpen)}>
-                {menuOpen ? <X size={22} /> : <Menu size={22} />}
-              </button>
+            <div className="flex items-center gap-2">
+              {userData ? (
+                <div className="hidden md:flex items-center gap-2">
+                  <button
+                    onClick={() => onNavigate('user')}
+                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <User size={16} />
+                    {userData.name}
+                  </button>
+                  <button
+                    onClick={() => {
+                      onUserLogout?.();
+                      setMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => onNavigate('user')}
+                  className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <User size={16} />
+                  Sign In
+                </button>
+              )}
+
+              <div className="flex md:hidden gap-1">
+                <button
+                  onClick={() => onNavigate('track')}
+                  className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Search size={14} />
+                  Track
+                </button>
+                <button className="p-2 text-gray-600" onClick={() => setMenuOpen(!menuOpen)}>
+                  {menuOpen ? <X size={22} /> : <Menu size={22} />}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -108,6 +142,32 @@ export default function Header({ currentPage, onNavigate }: HeaderProps) {
             >
               Track Order
             </button>
+            {userData ? (
+              <>
+                <button
+                  onClick={() => { onNavigate('user'); setMenuOpen(false); }}
+                  className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600"
+                >
+                  <User size={14} className="inline mr-2" />My Account
+                </button>
+                <button
+                  onClick={() => {
+                    onUserLogout?.();
+                    setMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  <LogOut size={14} className="inline mr-2" />Logout
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { onNavigate('user'); setMenuOpen(false); }}
+                className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50"
+              >
+                <User size={14} className="inline mr-2" />Sign In
+              </button>
+            )}
             {carePhone && (
               <a href={`tel:${carePhone}`} className="block px-4 py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50">
                 <Phone size={12} className="inline mr-2" />Call: {carePhone}
