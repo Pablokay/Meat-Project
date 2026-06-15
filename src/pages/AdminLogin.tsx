@@ -6,7 +6,6 @@ type AdminLoginProps = {
 };
 
 const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'freshlivestock2024';
 
 export default function AdminLogin({ onLogin }: AdminLoginProps) {
   const [username, setUsername] = useState('');
@@ -16,7 +15,8 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (username === ADMIN_USER && password === ADMIN_PASS) {
+    const storedPassword = localStorage.getItem('admin_password') || 'freshlivestock2024';
+    if (username === ADMIN_USER && password === storedPassword) {
       sessionStorage.setItem('admin_auth', '1');
       onLogin();
     } else {

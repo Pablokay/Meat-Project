@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, type Order, type OrderUpdate, type Livestock, type BankAccount, type DeliverySlot, type Customer, type AdminSetting } from '../lib/supabase';
-import { Package, CircleCheck as CheckCircle2, RefreshCw, ChevronDown, ChevronUp, Send, Bell, Search, ListFilter as Filter, LogOut, Plus, Pencil, Trash2, Upload, X, Image as ImageIcon, CreditCard, Eye, CircleCheck as CheckCircle, Circle as XCircle, Building2, Calendar, ExternalLink, FileText, Users, Settings, ToggleLeft, ToggleRight, Phone, Mail, MessageCircle } from 'lucide-react';
+import PasswordManager from '../components/PasswordManager';
+import { Package, CircleCheck as CheckCircle2, RefreshCw, ChevronDown, ChevronUp, Send, Bell, Search, ListFilter as Filter, LogOut, Plus, Pencil, Trash2, Upload, X, Image as ImageIcon, CreditCard, Eye, CircleCheck as CheckCircle, Circle as XCircle, Building2, Calendar, ExternalLink, FileText, Users, Settings, ToggleLeft, ToggleRight, Phone, Mail, MessageCircle, Lock } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending', confirmed: 'Confirmed', processing: 'Processing',
@@ -52,7 +53,7 @@ export default function Admin({ onLogout }: AdminProps) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'orders' | 'payments' | 'livestock' | 'customers' | 'settings' | 'blast'>('orders');
+  const [tab, setTab] = useState<'orders' | 'payments' | 'livestock' | 'customers' | 'settings' | 'blast' | 'password'>('orders');
   const [orderUpdates, setOrderUpdates] = useState<Record<string, OrderUpdate[]>>({});
 
   // Livestock form state
@@ -402,6 +403,7 @@ export default function Admin({ onLogout }: AdminProps) {
             { key: 'livestock' as const, label: 'Livestock', icon: ImageIcon },
             { key: 'customers' as const, label: 'Customers', icon: Users },
             { key: 'settings' as const, label: 'Settings', icon: Settings },
+            { key: 'password' as const, label: 'Password', icon: Lock },
             { key: 'blast' as const, label: 'Blast', icon: Bell },
           ]).map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 ${tab === key ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
@@ -968,6 +970,13 @@ export default function Admin({ onLogout }: AdminProps) {
               Send to All Active Orders
             </button>
           </div>
+        )}
+
+        {/* ===== PASSWORD TAB ===== */}
+        {tab === 'password' && (
+          <PasswordManager onPasswordChange={() => {
+            // Optional: Show success feedback
+          }} />
         )}
       </div>
     </div>
