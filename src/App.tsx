@@ -7,8 +7,10 @@ import AdminLogin from './pages/AdminLogin';
 import Admin from './pages/Admin';
 import UserLogin from './pages/UserLogin';
 import UserDashboard from './pages/UserDashboard';
+import Cart from './pages/Cart';
+import type { CartItem } from './lib/supabase';
 
-type Page = 'shop' | 'track' | 'admin' | 'admin-login' | 'user-login' | 'user-dashboard';
+type Page = 'shop' | 'track' | 'admin' | 'admin-login' | 'user-login' | 'user-dashboard' | 'cart';
 type UserData = { id: string; email: string; name: string } | null;
 type UserType = 'guest' | 'registered' | null;
 
@@ -17,6 +19,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userData, setUserData] = useState<UserData>(null);
   const [userType, setUserType] = useState<UserType>(null);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
     // Check for existing user session
@@ -25,11 +28,22 @@ export default function App() {
       setUserData(JSON.parse(userSession));
     }
 
+    // Load cart from localStorage
+    const savedCart = localStorage.getItem('app_cart');
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart));
+      } catch {
+        setCartItems([]);
+      }
+    }
+
     const hash = window.location.hash.replace('#', '');
     if (hash === 'admin') {
       if (isAdmin) setPage('admin');
       else setPage('admin-login');
     } else if (hash === 'track') setPage('track');
+    else if (hash === 'cart') setPage('cart');
     else if (hash === 'user' && userData) setPage('user-dashboard');
     else if (hash === 'user' && !userData) setPage('user-login');
     else setPage('shop');
@@ -40,6 +54,7 @@ export default function App() {
         if (isAdmin) setPage('admin');
         else setPage('admin-login');
       } else if (h === 'track') setPage('track');
+      else if (h === 'cart') setPage('cart');
       else if (h === 'user' && userData) setPage('user-dashboard');
       else if (h === 'user' && !userData) setPage('user-login');
       else setPage('shop');

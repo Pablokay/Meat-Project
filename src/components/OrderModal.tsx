@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, ChevronRight, ChevronLeft, Scale, Package, Truck, Store, User, Phone, Mail, MessageCircle, MapPin, Building2, Smartphone, CircleCheck as CheckCircle2, Copy, Upload, Flame, Snowflake } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Scale, Package, Truck, Store, User, Phone, Mail, MessageCircle, MapPin, Building2, Smartphone, CircleCheck as CheckCircle2, Copy, Upload, Flame, Snowflake, ShoppingBag } from 'lucide-react';
 import { supabase, type Livestock, type DeliverySlot, type BankAccount, type AdminSetting } from '../lib/supabase';
 
 const DELIVERY_FEE = 2500;
@@ -8,6 +8,7 @@ type OrderModalProps = {
   livestock: Livestock;
   onClose: () => void;
   onSuccess: (orderNumber: string, accessToken: string) => void;
+  onAddToCart?: (item: any) => void;
 };
 
 type Step = 'quantity' | 'options' | 'customer' | 'delivery' | 'payment' | 'confirm';
@@ -25,7 +26,7 @@ const steps: { key: Step; label: string }[] = [
   { key: 'confirm', label: 'Review' },
 ];
 
-export default function OrderModal({ livestock, onClose, onSuccess }: OrderModalProps) {
+export default function OrderModal({ livestock, onClose, onSuccess, onAddToCart }: OrderModalProps) {
   const [step, setStep] = useState<Step>('quantity');
   const [unit, setUnit] = useState<'kg' | 'portion'>(livestock.unit_options.includes('kg') ? 'kg' : 'portion');
   const [quantity, setQuantity] = useState(1);
@@ -465,10 +466,37 @@ export default function OrderModal({ livestock, onClose, onSuccess }: OrderModal
                 <p className="text-sm text-gray-600">{form.email}</p>
                 <p className="text-sm text-gray-600">{form.phone}</p>
               </div>
-              <button onClick={submitOrder} disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors">
+              <button onClick={submitOrder} disabled={submitting} className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors">
                 {submitting ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={18} />}
                 Confirm & Place Order
               </button>
+              {onAddToCart && (
+                <button 
+                  onClick={() => {
+                    const cartItem = {
+                      id: `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      livestock_id: livestock.id,
+                      livestock_name: livestock.name,
+                      livestock_image: livestock.image_url,
+                      livestock_type: livestock.type,
+                      quantity,
+                      unit,
+                      unit_price: unitPrice,
+                      preparation_type: preparationType,
+                      portion_size: unit === 'portion' ? portionSize : undefined,
+                      subtotal,
+                      added_at: new Date().toISOString(),
+                    };
+                    onAddToCart(cartItem);
+                    onClose();
+                  }}
+                  disabled={submitting}
+                  className="flex-1 flex items-center justify-center gap-2 border-2 border-blue-700 text-blue-700 hover:bg-blue-50 disabled:opacity-50 font-semibold py-3 rounded-xl transition-colors"
+                >
+                  <ShoppingBag size={18} />
+                  Add to Cart
+                </button>
+              )}
             </div>
           )}
         </div>

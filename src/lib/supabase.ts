@@ -104,3 +104,30 @@ export type AdminSetting = {
   created_at: string;
   updated_at: string;
 };
+
+export type CartItem = {
+  id: string;
+  livestock_id: string;
+  livestock_name: string;
+  livestock_image: string;
+  livestock_type: string;
+  quantity: number;
+  unit: 'kg' | 'portion';
+  unit_price: number;
+  preparation_type: string;
+  portion_size?: 'full' | 'half' | 'quarter';
+  subtotal: number;
+  added_at: string;
+};
+
+export type UserCart = {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_phone?: string;
+  items: CartItem[];
+  total: number;
+  created_at: string;
+  last_updated: string;
+  abandoned: boolean;
+};
