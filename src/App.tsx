@@ -7,7 +7,7 @@ import AdminLogin from './pages/AdminLogin';
 import Admin from './pages/Admin';
 import UserLogin from './pages/UserLogin';
 import UserDashboard from './pages/UserDashboard';
-import Cart from './pages/Cart';
+
 import type { CartItem } from './lib/supabase';
 
 type Page = 'shop' | 'track' | 'admin' | 'admin-login' | 'user-login' | 'user-dashboard' | 'cart';
@@ -19,7 +19,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userData, setUserData] = useState<UserData>(null);
   const [userType, setUserType] = useState<UserType>(null);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [ setCartItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
     // Check for existing user session

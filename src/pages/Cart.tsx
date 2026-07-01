@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Trash2, ShoppingBag, ChevronRight, X } from 'lucide-react';
+
+import { Trash2, ShoppingBag, ChevronRight, } from 'lucide-react';
 import type { CartItem } from '../lib/supabase';
 
 type CartProps = {
