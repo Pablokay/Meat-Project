@@ -19,7 +19,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userData, setUserData] = useState<UserData>(null);
   const [userType, setUserType] = useState<UserType>(null);
-  const [ setCartItems] = useState<CartItem[]>([]);
+  const [, setCartItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
     // Check for existing user session
