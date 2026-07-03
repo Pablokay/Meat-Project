@@ -10,9 +10,39 @@
     scroll-behavior: smooth;
   }
   body {
+    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+    background-color: #f7f4ec;
+    color: #1a231c;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+@layer components {
+  /* Pill primary button (deep forest green) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-forest-700 text-cream font-semibold px-5 py-3 transition-colors hover:bg-forest-800 disabled:bg-sage-300 disabled:text-forest-800/60;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-forest-700/25 text-forest-800 font-semibold px-5 py-3 transition-colors hover:bg-forest-50;
+  }
+  /* Small status/category pill */
+  .tag-pill {
+    @apply inline-flex items-center rounded-full bg-cream/90 backdrop-blur px-3 py-1 text-xs font-semibold text-forest-800 border border-forest-700/10;
+  }
+  /* Rounded surface card */
+  .surface {
+    @apply bg-white rounded-lg shadow-card border border-forest-700/5;
+  }
+  /* Italic serif accent for headings */
+  .accent {
+    @apply font-serif italic font-medium;
+  }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @layer utilities {

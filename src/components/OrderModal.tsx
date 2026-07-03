@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Scale, Package, ShoppingBag, ShoppingCart, CircleCheck as CheckCircle2 } from 'lucide-react';
 import { supabase, availableUnits, priceForUnit, UNIT_LABELS, type Livestock, type Unit, type CartItem, type AdminSetting } from '../lib/supabase';
+import { useToast } from './Toast';
 
 type OrderModalProps = {
   livestock: Livestock;
@@ -19,6 +20,7 @@ const UNIT_ICON: Partial<Record<Unit, React.ReactNode>> = {
 };
 
 export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart }: OrderModalProps) {
+  const toast = useToast();
   const units = availableUnits(livestock);
   const [unit, setUnit] = useState<Unit>(units[0] ?? 'kg');
   const [quantity, setQuantity] = useState(1);
@@ -84,6 +86,7 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
 
   function handleAdd(goToCart: boolean) {
     onAddToCart(buildItem());
+    toast(`${livestock.name} added to cart`);
     if (goToCart) {
       onClose();
       onGoToCart();
@@ -96,7 +99,7 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-lg shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white z-10 border-b border-gray-100 p-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">{livestock.name}</h2>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -111,10 +114,10 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
                 <button
                   key={u}
                   onClick={() => setUnit(u)}
-                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${unit === u ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${unit === u ? 'border-forest-600 bg-forest-50' : 'border-gray-200 hover:border-gray-300'}`}
                 >
-                  <div className={unit === u ? 'text-blue-600' : 'text-gray-400'}>{UNIT_ICON[u] ?? <Package size={18} />}</div>
-                  <span className={`text-sm font-bold ${unit === u ? 'text-blue-700' : 'text-gray-600'}`}>{UNIT_LABELS[u]}</span>
+                  <div className={unit === u ? 'text-forest-700' : 'text-gray-400'}>{UNIT_ICON[u] ?? <Package size={18} />}</div>
+                  <span className={`text-sm font-bold ${unit === u ? 'text-forest-700' : 'text-gray-600'}`}>{UNIT_LABELS[u]}</span>
                   <span className="text-[11px] text-gray-500">{fmt(priceForUnit(livestock, u))}</span>
                 </button>
               ))}
@@ -126,9 +129,9 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Quantity ({UNIT_LABELS[unit]})</p>
             <div className="flex items-center gap-4">
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg font-bold">-</button>
+              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-cream text-lg font-bold">-</button>
               <span className="text-2xl font-bold text-gray-900 w-12 text-center">{quantity}</span>
-              <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg font-bold">+</button>
+              <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-cream text-lg font-bold">+</button>
             </div>
           </div>
 
@@ -143,9 +146,9 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
                     <button
                       key={name}
                       onClick={() => togglePrep(name)}
-                      className={`p-3 rounded-xl border-2 flex items-center justify-between gap-2 transition-all text-left ${selected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      className={`p-3 rounded-xl border-2 flex items-center justify-between gap-2 transition-all text-left ${selected ? 'border-forest-600 bg-forest-50' : 'border-gray-200 hover:border-gray-300'}`}
                     >
-                      <span className={`text-sm font-semibold ${selected ? 'text-blue-700' : 'text-gray-600'}`}>{name}</span>
+                      <span className={`text-sm font-semibold ${selected ? 'text-forest-700' : 'text-gray-600'}`}>{name}</span>
                       <span className="text-[11px] text-gray-500">{surcharge > 0 ? `+${fmt(surcharge)}` : 'Free'}</span>
                     </button>
                   );
@@ -157,14 +160,14 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
           {commentEnabled && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">{commentLabel} (optional)</label>
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Any special instructions..." className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 resize-none" />
+              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Any special instructions..." className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-forest-600 resize-none" />
             </div>
           )}
 
-          <div className="bg-blue-50 rounded-xl p-4 space-y-1">
+          <div className="bg-forest-50 rounded-xl p-4 space-y-1">
             <div className="flex justify-between text-sm"><span className="text-gray-600">Unit price</span><span className="font-semibold">{fmt(unitPrice)}</span></div>
             {prepSurcharge > 0 && <div className="flex justify-between text-xs text-gray-500"><span>incl. preparation</span><span>+{fmt(prepSurcharge)}</span></div>}
-            <div className="flex justify-between text-sm font-bold border-t border-blue-200 pt-1"><span>Subtotal</span><span className="text-blue-700">{fmt(subtotal)}</span></div>
+            <div className="flex justify-between text-sm font-bold border-t border-forest-700/15 pt-1"><span>Subtotal</span><span className="text-forest-700">{fmt(subtotal)}</span></div>
           </div>
         </div>
 
@@ -172,14 +175,14 @@ export default function OrderModal({ livestock, onClose, onAddToCart, onGoToCart
           <button
             onClick={() => handleAdd(false)}
             disabled={units.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 border-2 border-blue-700 text-blue-700 hover:bg-blue-50 disabled:opacity-50 font-semibold py-3 rounded-xl transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 border-2 border-forest-700 text-forest-700 hover:bg-forest-50 disabled:opacity-50 font-semibold py-3 rounded-xl transition-colors"
           >
             {added ? <><CheckCircle2 size={18} />Added!</> : <><ShoppingCart size={18} />Add to Cart</>}
           </button>
           <button
             onClick={() => handleAdd(true)}
             disabled={units.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-forest-700 hover:bg-forest-800 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors"
           >
             <ShoppingBag size={18} />Buy Now
           </button>

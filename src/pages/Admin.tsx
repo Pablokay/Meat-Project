@@ -8,16 +8,18 @@ import {
   Package, CircleCheck as CheckCircle2, RefreshCw, ChevronDown, ChevronUp, Send, Bell, Search,
   ListFilter as Filter, LogOut, Plus, Pencil, Trash2, Upload, X, Image as ImageIcon, CreditCard,
   ExternalLink, FileText, Users, Settings, ToggleLeft, ToggleRight, Phone, Mail, MessageCircle,
-  Lock, Building2, Calendar, Download, MapPin, Truck, RotateCcw, ShoppingCart, BarChart3, Award,
+  Lock, Building2, Calendar, Download, MapPin, Truck, RotateCcw, ShoppingCart, BarChart3, Award, Shield,
 } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending', awaiting_confirmation: 'Awaiting Confirmation', confirmed: 'Confirmed',
-  processing: 'Processing', ready: 'Ready', in_transit: 'In Transit', delivered: 'Delivered', cancelled: 'Cancelled',
+  pending: 'Pending', awaiting_confirmation: 'Awaiting Confirmation', awaiting_payment: 'Awaiting Payment',
+  confirmed: 'Confirmed', processing: 'Processing', ready: 'Ready', in_transit: 'In Transit',
+  delivered: 'Delivered', cancelled: 'Cancelled',
 };
 const PAYMENT_LABELS: Record<string, string> = { pending: 'Pending', confirmed: 'Confirmed', failed: 'Failed' };
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800', awaiting_confirmation: 'bg-purple-100 text-purple-800',
+  awaiting_payment: 'bg-amber-100 text-amber-800',
   confirmed: 'bg-blue-100 text-blue-800', processing: 'bg-orange-100 text-orange-800',
   ready: 'bg-teal-100 text-teal-800', in_transit: 'bg-indigo-100 text-indigo-800',
   delivered: 'bg-green-100 text-green-800', cancelled: 'bg-red-100 text-red-800',
@@ -115,6 +117,10 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
   const [blastEmail, setBlastEmail] = useState(false);
   const [blasting, setBlasting] = useState(false);
 
+  // Admin in-app notifications (bell)
+  const [adminNotifs, setAdminNotifs] = useState<any[]>([]);
+  const [bellOpen, setBellOpen] = useState(false);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [ordersRes, livestockRes, banksRes, slotsRes, customersRes, settingsRes, locsRes, cartsRes, blastRes] = await Promise.all([
@@ -151,6 +157,21 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const fetchAdminNotifs = useCallback(async () => {
+    const { data } = await supabase.from('notifications').select('*').eq('recipient_type', 'admin').order('created_at', { ascending: false }).limit(50);
+    setAdminNotifs(data ?? []);
+  }, []);
+  useEffect(() => { fetchAdminNotifs(); const id = setInterval(fetchAdminNotifs, 30000); return () => clearInterval(id); }, [fetchAdminNotifs]);
+
+  async function markAdminNotifsRead() {
+    const unread = adminNotifs.filter((n) => !n.is_read).map((n) => n.id);
+    if (unread.length) {
+      await supabase.from('notifications').update({ is_read: true }).in('id', unread);
+      setAdminNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    }
+  }
+  const unreadAdminNotifs = adminNotifs.filter((n) => !n.is_read).length;
 
   // ---- helpers -----------------------------------------------------------
   async function notifyUser(order: Order, title: string, body: string, type = 'order') {
@@ -207,7 +228,12 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
     await supabase.from('order_updates').insert({ order_id: order.id, status: order.order_status, message: msg, created_by: 'admin' });
     await notifyUser(order, 'Payment ' + label, msg, 'payment');
     if (status === 'confirmed') {
-      await supabase.from('orders').update({ order_status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', order.id);
+      // Only advance to "confirmed" from an early stage — never drag a further-along
+      // order (processing/ready/in_transit/delivered) backwards.
+      const early = ['pending', 'awaiting_confirmation', 'awaiting_payment'].includes(order.order_status);
+      if (early) {
+        await supabase.from('orders').update({ order_status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', order.id);
+      }
       await awardPoints(order);
     }
     setUpdatingOrder(null);
@@ -478,45 +504,89 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
     { key: 'password', label: 'Password', icon: Lock },
   ];
 
+  const activeTab = TABS.find((t) => t.key === tab);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-100 lg:flex">
+      {/* Sidebar (desktop) */}
+      <aside className="hidden lg:flex flex-col w-64 bg-slate-900 text-slate-300 fixed inset-y-0 left-0 z-30">
+        <div className="px-5 py-5 flex items-center gap-3 border-b border-white/5">
+          <div className="bg-emerald-600 p-2 rounded-xl"><Shield size={20} className="text-white" /></div>
           <div>
-            <h1 className="text-xl font-bold">Admin Dashboard</h1>
-            <p className="text-gray-400 text-sm">Koyan FreshLivestock — orders, logistics & customers</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={fetchAll} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"><RefreshCw size={16} /></button>
-            <button onClick={onLogout} className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-sm"><LogOut size={14} />Logout</button>
+            <p className="text-white font-bold leading-none">Staff Console</p>
+            <p className="text-[11px] text-slate-500 mt-1">Koyan Fresh</p>
           </div>
         </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          {[
-            { label: 'Total Orders', value: stats.total, color: 'text-gray-900' },
-            { label: 'Pending', value: stats.pending, color: 'text-amber-600' },
-            { label: 'Active', value: stats.active, color: 'text-blue-600' },
-            { label: 'Delivered', value: stats.delivered, color: 'text-green-600' },
-            { label: 'Revenue', value: fmt(stats.revenue), color: 'text-green-700' },
-            { label: 'Unconfirmed Pay', value: stats.pendingPayments, color: 'text-red-600' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4">
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className={`text-lg font-bold mt-1 ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {TABS.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 ${tab === key ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
-              <Icon size={14} />{label}
+            <button key={key} onClick={() => setTab(key)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${tab === key ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+              <Icon size={17} />{label}
             </button>
           ))}
+        </nav>
+        <div className="p-3 border-t border-white/5">
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5"><LogOut size={17} />Logout</button>
         </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 lg:ml-64">
+        {/* Topbar */}
+        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
+          <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="lg:hidden bg-emerald-600 p-1.5 rounded-lg"><Shield size={16} className="text-white" /></span>
+              <h1 className="text-lg font-bold text-gray-900">{activeTab?.label.replace(/\s*\(.*\)/, '') ?? 'Dashboard'}</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button onClick={() => { setBellOpen((o) => !o); if (!bellOpen) markAdminNotifsRead(); }} className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+                  <Bell size={18} />
+                  {unreadAdminNotifs > 0 && <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">{unreadAdminNotifs > 9 ? '9+' : unreadAdminNotifs}</span>}
+                </button>
+                {bellOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 max-h-96 overflow-y-auto z-50">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between"><p className="text-sm font-bold text-gray-900">Notifications</p><button onClick={() => setBellOpen(false)} className="text-gray-400"><X size={14} /></button></div>
+                    {adminNotifs.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">No notifications.</p> : adminNotifs.map((n) => (
+                      <div key={n.id} className={`px-4 py-3 border-b border-gray-50 ${n.is_read ? '' : 'bg-emerald-50/50'}`}>
+                        <p className="text-sm font-semibold text-gray-900">{n.title}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{n.body}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button onClick={fetchAll} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"><RefreshCw size={16} /></button>
+              <button onClick={onLogout} className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700"><LogOut size={14} /></button>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            {[
+              { label: 'Total Orders', value: stats.total, color: 'text-gray-900' },
+              { label: 'Pending', value: stats.pending, color: 'text-amber-600' },
+              { label: 'Active', value: stats.active, color: 'text-blue-600' },
+              { label: 'Delivered', value: stats.delivered, color: 'text-green-600' },
+              { label: 'Revenue', value: fmt(stats.revenue), color: 'text-emerald-700' },
+              { label: 'Unconfirmed Pay', value: stats.pendingPayments, color: 'text-red-600' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                <p className="text-xs text-gray-500">{label}</p>
+                <p className={`text-lg font-bold mt-1 ${color}`}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile tab strip */}
+          <div className="lg:hidden flex gap-2 mb-5 overflow-x-auto scrollbar-hide pb-1">
+            {TABS.map(({ key, label, icon: Icon }) => (
+              <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 ${tab === key ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                <Icon size={14} />{label}
+              </button>
+            ))}
+          </div>
 
         {/* ORDERS */}
         {tab === 'orders' && (
@@ -524,11 +594,11 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
             <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-48">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" placeholder="Search order #, name, phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
+                <input type="text" placeholder="Search order #, name, phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500" />
               </div>
               <div className="flex items-center gap-2">
                 <Filter size={14} className="text-gray-400" />
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-gray-200 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-blue-400">
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-gray-200 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
                   <option value="all">All Status</option>
                   {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
@@ -536,7 +606,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
               <button onClick={() => setOrdersView(ordersView === 'cards' ? 'table' : 'cards')} className="flex items-center gap-1.5 border border-gray-200 rounded-xl py-2 px-3 text-sm font-medium text-gray-600 hover:bg-gray-50">
                 <BarChart3 size={14} />{ordersView === 'cards' ? 'Table view' : 'Card view'}
               </button>
-              <button onClick={exportCSV} className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl py-2 px-3 text-sm font-semibold"><Download size={14} />Export CSV</button>
+              <button onClick={exportCSV} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2 px-3 text-sm font-semibold"><Download size={14} />Export CSV</button>
             </div>
 
             {loading ? <div className="text-center py-10 text-gray-400">Loading...</div> : filteredOrders.length === 0 ? <div className="text-center py-10 text-gray-400">No orders found.</div> : ordersView === 'table' ? (
@@ -624,13 +694,13 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                           )}
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-gray-500">Status:</span>
-                            <select value={order.order_status} onChange={(e) => updateOrderStatus(order, e.target.value)} disabled={updatingOrder === order.id} className="text-xs border border-gray-200 rounded-lg py-1 px-2 focus:outline-none focus:border-blue-400">
+                            <select value={order.order_status} onChange={(e) => updateOrderStatus(order, e.target.value)} disabled={updatingOrder === order.id} className="text-xs border border-gray-200 rounded-lg py-1 px-2 focus:outline-none focus:border-emerald-500">
                               {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-gray-500">Payment:</span>
-                            <select value={order.payment_status} onChange={(e) => confirmPayment(order, e.target.value as 'confirmed' | 'failed')} disabled={updatingOrder === order.id} className="text-xs border border-gray-200 rounded-lg py-1 px-2 focus:outline-none focus:border-blue-400">
+                            <select value={order.payment_status} onChange={(e) => confirmPayment(order, e.target.value as 'confirmed' | 'failed')} disabled={updatingOrder === order.id} className="text-xs border border-gray-200 rounded-lg py-1 px-2 focus:outline-none focus:border-emerald-500">
                               {Object.entries(PAYMENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
                             {order.payment_status === 'confirmed' && (
@@ -640,8 +710,8 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                         </div>
 
                         <div className="flex gap-2 pt-2 border-t border-gray-100">
-                          <input type="text" placeholder="Send a custom update message..." value={updateMessage} onChange={(e) => setUpdateMessage(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendCustomMessage(order)} className="flex-1 text-xs border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:border-blue-400" />
-                          <button onClick={() => sendCustomMessage(order)} disabled={updatingOrder === order.id || !updateMessage.trim()} className="flex items-center gap-1 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white px-3 py-2 rounded-lg text-xs font-semibold"><Send size={12} />Send</button>
+                          <input type="text" placeholder="Send a custom update message..." value={updateMessage} onChange={(e) => setUpdateMessage(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendCustomMessage(order)} className="flex-1 text-xs border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:border-emerald-500" />
+                          <button onClick={() => sendCustomMessage(order)} disabled={updatingOrder === order.id || !updateMessage.trim()} className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-3 py-2 rounded-lg text-xs font-semibold"><Send size={12} />Send</button>
                         </div>
 
                         {(orderUpdates[order.id] ?? []).length > 0 && (
@@ -671,7 +741,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">Payment Confirmation</h2>
-              <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="border border-gray-200 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-blue-400">
+              <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="border border-gray-200 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
                 <option value="all">All Payments</option>
                 {Object.entries(PAYMENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
@@ -685,7 +755,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                 <p className="text-xs text-gray-500">{order.customer_name} · {order.customer_phone} · {fmt(order.total_amount)} · Ref: {order.payment_reference || '—'}</p>
                 {order.payment_proof_url && <a href={order.payment_proof_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 mt-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-1.5 text-xs font-medium text-blue-700"><ExternalLink size={12} />Proof</a>}
                 <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3">
-                  {order.payment_status !== 'confirmed' && <button onClick={() => confirmPayment(order, 'confirmed')} disabled={updatingOrder === order.id} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl text-sm font-semibold"><CheckCircle2 size={16} />Confirm</button>}
+                  {order.payment_status !== 'confirmed' && <button onClick={() => confirmPayment(order, 'confirmed')} disabled={updatingOrder === order.id} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl text-sm font-semibold"><CheckCircle2 size={16} />Confirm</button>}
                   {order.payment_status === 'pending' && <button onClick={() => confirmPayment(order, 'failed')} disabled={updatingOrder === order.id} className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-semibold"><X size={16} />Decline</button>}
                   {order.payment_status === 'confirmed' && <button onClick={() => reversePayment(order)} disabled={updatingOrder === order.id} className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-semibold"><RotateCcw size={16} />Reverse Payment</button>}
                 </div>
@@ -699,7 +769,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">Manage Livestock</h2>
-              <button onClick={openAddLivestock} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold"><Plus size={16} />Add Livestock</button>
+              <button onClick={openAddLivestock} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold"><Plus size={16} />Add Livestock</button>
             </div>
 
             {showLivestockForm && (
@@ -724,13 +794,13 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                         </div>
                       )}
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
-                      <input type="text" placeholder="Or paste image URL" value={livestockForm.image_url} onChange={(e) => setLivestockForm((f) => ({ ...f, image_url: e.target.value }))} className="w-full mt-2 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                      <input type="text" placeholder="Or paste image URL" value={livestockForm.image_url} onChange={(e) => setLivestockForm((f) => ({ ...f, image_url: e.target.value }))} className="w-full mt-2 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Name</label><input type="text" value={livestockForm.name} onChange={(e) => setLivestockForm((f) => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
-                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Type</label><select value={livestockForm.type} onChange={(e) => setLivestockForm((f) => ({ ...f, type: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400">{LIVESTOCK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Name</label><input type="text" value={livestockForm.name} onChange={(e) => setLivestockForm((f) => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
+                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Type</label><select value={livestockForm.type} onChange={(e) => setLivestockForm((f) => ({ ...f, type: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500">{LIVESTOCK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
                     </div>
-                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Description</label><textarea value={livestockForm.description} onChange={(e) => setLivestockForm((f) => ({ ...f, description: e.target.value }))} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 resize-none" /></div>
+                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Description</label><textarea value={livestockForm.description} onChange={(e) => setLivestockForm((f) => ({ ...f, description: e.target.value }))} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 resize-none" /></div>
                     <div>
                       <p className="text-sm font-semibold text-gray-700 mb-2">Unit Prices (leave blank to disable a unit)</p>
                       <div className="grid grid-cols-3 gap-3">
@@ -741,13 +811,13 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                           { k: 'price_half', label: 'Half' },
                           { k: 'price_quarter', label: 'Quarter' },
                         ].map(({ k, label }) => (
-                          <div key={k}><label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label><input type="number" value={(livestockForm as any)[k]} onChange={(e) => setLivestockForm((f) => ({ ...f, [k]: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
+                          <div key={k}><label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label><input type="number" value={(livestockForm as any)[k]} onChange={(e) => setLivestockForm((f) => ({ ...f, [k]: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
                         ))}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Available KG</label><input type="number" value={livestockForm.available_kg} onChange={(e) => setLivestockForm((f) => ({ ...f, available_kg: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
-                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Available Portions</label><input type="number" value={livestockForm.available_portions} onChange={(e) => setLivestockForm((f) => ({ ...f, available_portions: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
+                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Available KG</label><input type="number" value={livestockForm.available_kg} onChange={(e) => setLivestockForm((f) => ({ ...f, available_kg: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
+                      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Available Portions</label><input type="number" value={livestockForm.available_portions} onChange={(e) => setLivestockForm((f) => ({ ...f, available_portions: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -757,8 +827,8 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                       <div className="space-y-2">
                         {livestockForm.prep.map((p, i) => (
                           <div key={i} className="flex gap-2">
-                            <input type="text" placeholder="e.g. Roasted" value={p.name} onChange={(e) => setLivestockForm((f) => ({ ...f, prep: f.prep.map((x, j) => j === i ? { ...x, name: e.target.value } : x) }))} className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                            <input type="number" placeholder="Surcharge" value={p.price} onChange={(e) => setLivestockForm((f) => ({ ...f, prep: f.prep.map((x, j) => j === i ? { ...x, price: e.target.value } : x) }))} className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                            <input type="text" placeholder="e.g. Roasted" value={p.name} onChange={(e) => setLivestockForm((f) => ({ ...f, prep: f.prep.map((x, j) => j === i ? { ...x, name: e.target.value } : x) }))} className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
+                            <input type="number" placeholder="Surcharge" value={p.price} onChange={(e) => setLivestockForm((f) => ({ ...f, prep: f.prep.map((x, j) => j === i ? { ...x, price: e.target.value } : x) }))} className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
                             <button onClick={() => setLivestockForm((f) => ({ ...f, prep: f.prep.filter((_, j) => j !== i) }))} className="p-2 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
                           </div>
                         ))}
@@ -767,7 +837,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                     </div>
                     <div className="flex gap-3 pt-2">
                       <button onClick={() => setShowLivestockForm(false)} className="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-                      <button onClick={saveLivestock} disabled={savingLivestock || !livestockForm.name || !livestockForm.price_per_kg} className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white py-2.5 rounded-xl text-sm font-semibold">
+                      <button onClick={saveLivestock} disabled={savingLivestock || !livestockForm.name || !livestockForm.price_per_kg} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white py-2.5 rounded-xl text-sm font-semibold">
                         {savingLivestock ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={16} />}{editingLivestock ? 'Save Changes' : 'Add Livestock'}
                       </button>
                     </div>
@@ -787,7 +857,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                     <div className="flex items-start justify-between">
                       <div><h3 className="font-bold text-gray-900">{l.name}</h3><p className="text-xs text-gray-500">{l.type}</p></div>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => openEditLivestock(l)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={14} /></button>
+                        <button onClick={() => openEditLivestock(l)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><Pencil size={14} /></button>
                         <button onClick={() => toggleLivestockAvailability(l)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><RefreshCw size={14} /></button>
                         <button onClick={() => deleteLivestock(l.id)} disabled={deletingLivestock === l.id} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                       </div>
@@ -817,7 +887,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                   <p className="font-semibold text-gray-900 text-sm">{c.user_name || c.user_email || 'Customer'}</p>
                   <p className="text-xs text-gray-500">{(c.items?.length ?? 0)} item(s) · {fmt(c.total || 0)} · updated {new Date(c.updated_at).toLocaleString()}</p>
                 </div>
-                <button onClick={() => remindCart(c)} className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs font-semibold"><Bell size={13} />Send Reminder</button>
+                <button onClick={() => remindCart(c)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold"><Bell size={13} />Send Reminder</button>
               </div>
             ))}
           </div>
@@ -828,23 +898,23 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">Customer Directory</h2>
-              <button onClick={() => { setEditingCustomer(null); setCustomerForm({ name: '', phone: '', email: '', whatsapp: '', notes: '' }); setShowCustomerForm(true); }} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold"><Plus size={16} />Add Customer</button>
+              <button onClick={() => { setEditingCustomer(null); setCustomerForm({ name: '', phone: '', email: '', whatsapp: '', notes: '' }); setShowCustomerForm(true); }} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold"><Plus size={16} />Add Customer</button>
             </div>
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Search customers..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
+              <input type="text" placeholder="Search customers..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500" />
             </div>
             {showCustomerForm && (
               <div className="bg-white rounded-2xl border border-gray-100 p-5">
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="text" value={customerForm.name} onChange={(e) => setCustomerForm((f) => ({ ...f, name: e.target.value }))} placeholder="Name" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                  <input type="tel" value={customerForm.phone} onChange={(e) => setCustomerForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                  <input type="email" value={customerForm.email} onChange={(e) => setCustomerForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                  <input type="tel" value={customerForm.whatsapp} onChange={(e) => setCustomerForm((f) => ({ ...f, whatsapp: e.target.value }))} placeholder="WhatsApp" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                  <input type="text" value={customerForm.name} onChange={(e) => setCustomerForm((f) => ({ ...f, name: e.target.value }))} placeholder="Name" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
+                  <input type="tel" value={customerForm.phone} onChange={(e) => setCustomerForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
+                  <input type="email" value={customerForm.email} onChange={(e) => setCustomerForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
+                  <input type="tel" value={customerForm.whatsapp} onChange={(e) => setCustomerForm((f) => ({ ...f, whatsapp: e.target.value }))} placeholder="WhatsApp" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
                 </div>
                 <div className="flex gap-3 mt-3">
                   <button onClick={() => setShowCustomerForm(false)} className="flex-1 py-2 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600">Cancel</button>
-                  <button onClick={saveCustomer} disabled={!customerForm.phone} className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white py-2 rounded-xl text-sm font-semibold">Save</button>
+                  <button onClick={saveCustomer} disabled={!customerForm.phone} className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white py-2 rounded-xl text-sm font-semibold">Save</button>
                 </div>
               </div>
             )}
@@ -856,7 +926,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">{c.email && <span className="flex items-center gap-1"><Mail size={10} />{c.email}</span>}{c.whatsapp && <span className="flex items-center gap-1"><MessageCircle size={10} />{c.whatsapp}</span>}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => { setEditingCustomer(c); setCustomerForm({ name: c.name, phone: c.phone, email: c.email, whatsapp: c.whatsapp ?? '', notes: c.notes ?? '' }); setShowCustomerForm(true); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={14} /></button>
+                    <button onClick={() => { setEditingCustomer(c); setCustomerForm({ name: c.name, phone: c.phone, email: c.email, whatsapp: c.whatsapp ?? '', notes: c.notes ?? '' }); setShowCustomerForm(true); }} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><Pencil size={14} /></button>
                     <button onClick={() => deleteCustomer(c.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                   </div>
                 </div>
@@ -888,8 +958,8 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                     ))}
                   </div>
                   <div className="border-t border-gray-100 p-3 flex gap-2">
-                    <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendAdminMessage()} placeholder="Reply..." className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
-                    <button onClick={sendAdminMessage} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1"><Send size={14} />Send</button>
+                    <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendAdminMessage()} placeholder="Reply..." className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+                    <button onClick={sendAdminMessage} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1"><Send size={14} />Send</button>
                   </div>
                 </>
               ) : <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Select a conversation</div>}
@@ -906,15 +976,15 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
                 <div className="flex gap-2">
-                  <input type="text" placeholder="Location name" value={locForm.name} onChange={(e) => setLocForm((f) => ({ ...f, name: e.target.value }))} className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                  <input type="number" placeholder="Fee" value={locForm.fee} onChange={(e) => setLocForm((f) => ({ ...f, fee: e.target.value }))} className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                  <button onClick={saveLocation} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-semibold">{editingLoc ? 'Update' : 'Add'}</button>
+                  <input type="text" placeholder="Location name" value={locForm.name} onChange={(e) => setLocForm((f) => ({ ...f, name: e.target.value }))} className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
+                  <input type="number" placeholder="Fee" value={locForm.fee} onChange={(e) => setLocForm((f) => ({ ...f, fee: e.target.value }))} className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />
+                  <button onClick={saveLocation} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">{editingLoc ? 'Update' : 'Add'}</button>
                 </div>
                 {deliveryLocations.map((loc) => (
                   <div key={loc.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
                     <span className="text-sm text-gray-900">{loc.name} <span className="text-gray-500">· {fmt(loc.fee)}</span></span>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => { setEditingLoc(loc); setLocForm({ name: loc.name, fee: String(loc.fee) }); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={13} /></button>
+                      <button onClick={() => { setEditingLoc(loc); setLocForm({ name: loc.name, fee: String(loc.fee) }); }} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><Pencil size={13} /></button>
                       <button onClick={() => deleteLocation(loc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={13} /></button>
                     </div>
                   </div>
@@ -925,13 +995,13 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Calendar size={18} />Delivery Slots</h2>
-                <button onClick={() => { setSlotForm({ slot_date: '', slot_label: 'Morning (8am - 12pm)', max_orders: '10' }); setShowSlotForm(true); }} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl text-sm font-semibold"><Plus size={16} />Add Slot</button>
+                <button onClick={() => { setSlotForm({ slot_date: '', slot_label: 'Morning (8am - 12pm)', max_orders: '10' }); setShowSlotForm(true); }} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"><Plus size={16} />Add Slot</button>
               </div>
               {showSlotForm && (
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4 grid grid-cols-3 gap-3">
                   <input type="date" value={slotForm.slot_date} onChange={(e) => setSlotForm((f) => ({ ...f, slot_date: e.target.value }))} min={new Date().toISOString().split('T')[0]} className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                   <select value={slotForm.slot_label} onChange={(e) => setSlotForm((f) => ({ ...f, slot_label: e.target.value }))} className="px-3 py-2 border border-gray-200 rounded-lg text-sm"><option>Morning (8am - 12pm)</option><option>Afternoon (12pm - 5pm)</option><option>Evening (5pm - 9pm)</option></select>
-                  <div className="flex gap-2"><input type="number" value={slotForm.max_orders} onChange={(e) => setSlotForm((f) => ({ ...f, max_orders: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /><button onClick={saveSlot} disabled={!slotForm.slot_date} className="bg-blue-700 text-white px-3 rounded-lg text-sm font-semibold">Add</button></div>
+                  <div className="flex gap-2"><input type="number" value={slotForm.max_orders} onChange={(e) => setSlotForm((f) => ({ ...f, max_orders: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" /><button onClick={saveSlot} disabled={!slotForm.slot_date} className="bg-emerald-600 text-white px-3 rounded-lg text-sm font-semibold">Add</button></div>
                 </div>
               )}
               <div className="space-y-2">
@@ -947,7 +1017,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Building2 size={18} />Bank Accounts</h2>
-                <button onClick={() => { setEditingBank(null); setBankForm({ bank_name: '', account_name: '', account_number: '', sort_code: '' }); setShowBankForm(true); }} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl text-sm font-semibold"><Plus size={16} />Add</button>
+                <button onClick={() => { setEditingBank(null); setBankForm({ bank_name: '', account_name: '', account_number: '', sort_code: '' }); setShowBankForm(true); }} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"><Plus size={16} />Add</button>
               </div>
               {showBankForm && (
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4 grid grid-cols-2 gap-3">
@@ -955,7 +1025,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                   <input type="text" value={bankForm.account_name} onChange={(e) => setBankForm((f) => ({ ...f, account_name: e.target.value }))} placeholder="Account Name" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                   <input type="text" value={bankForm.account_number} onChange={(e) => setBankForm((f) => ({ ...f, account_number: e.target.value }))} placeholder="Account Number" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                   <input type="text" value={bankForm.sort_code} onChange={(e) => setBankForm((f) => ({ ...f, sort_code: e.target.value }))} placeholder="Sort Code" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                  <div className="col-span-2 flex gap-3"><button onClick={() => setShowBankForm(false)} className="flex-1 py-2 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600">Cancel</button><button onClick={saveBank} disabled={!bankForm.bank_name || !bankForm.account_number} className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white py-2 rounded-xl text-sm font-semibold">Save</button></div>
+                  <div className="col-span-2 flex gap-3"><button onClick={() => setShowBankForm(false)} className="flex-1 py-2 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600">Cancel</button><button onClick={saveBank} disabled={!bankForm.bank_name || !bankForm.account_number} className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white py-2 rounded-xl text-sm font-semibold">Save</button></div>
                 </div>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -977,14 +1047,14 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
               <h3 className="font-bold text-gray-900 mb-1">Send Blast / Batch Message</h3>
               <p className="text-sm text-gray-500 mb-4">Sends an in-app notification (and optional email) to customers in the selected segment.</p>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Audience</label>
-              <select value={blastAudience} onChange={(e) => setBlastAudience(e.target.value)} className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400">
+              <select value={blastAudience} onChange={(e) => setBlastAudience(e.target.value)} className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500">
                 <option value="all_active">All active orders</option>
                 <option value="all">All customers with orders</option>
                 {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>Status: {v}</option>)}
               </select>
-              <textarea value={blastMessage} onChange={(e) => setBlastMessage(e.target.value)} rows={4} placeholder="Your announcement..." className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-400 resize-none" />
+              <textarea value={blastMessage} onChange={(e) => setBlastMessage(e.target.value)} rows={4} placeholder="Your announcement..." className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-emerald-500 resize-none" />
               <label className="flex items-center gap-2 mt-3 text-sm text-gray-600"><input type="checkbox" checked={blastEmail} onChange={(e) => setBlastEmail(e.target.checked)} className="accent-blue-700" />Also send email (requires RESEND_API_KEY)</label>
-              <button onClick={sendBlast} disabled={blasting || !blastMessage.trim()} className="mt-3 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white px-5 py-2.5 rounded-xl text-sm font-semibold">
+              <button onClick={sendBlast} disabled={blasting || !blastMessage.trim()} className="mt-3 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-5 py-2.5 rounded-xl text-sm font-semibold">
                 {blasting ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Bell size={15} />}Send Blast
               </button>
             </div>
@@ -1015,25 +1085,25 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
                 <div><p className="text-sm font-semibold text-gray-900">Customer Comment Field</p><p className="text-xs text-gray-500">Show the optional comment field</p></div>
                 <button onClick={() => setCommentFieldEnabled(!commentFieldEnabled)}>{commentFieldEnabled ? <ToggleRight size={32} className="text-green-600" /> : <ToggleLeft size={32} className="text-gray-300" />}</button>
               </div>
-              {commentFieldEnabled && <input type="text" value={commentFieldLabel} onChange={(e) => setCommentFieldLabel(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />}
+              {commentFieldEnabled && <input type="text" value={commentFieldLabel} onChange={(e) => setCommentFieldLabel(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" />}
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Phone size={18} />Customer Care</h2>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Phone</label><input type="tel" value={customerCarePhone} onChange={(e) => setCustomerCarePhone(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
-                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Email</label><input type="email" value={customerCareEmail} onChange={(e) => setCustomerCareEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Phone</label><input type="tel" value={customerCarePhone} onChange={(e) => setCustomerCarePhone(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
+                <div><label className="block text-xs font-semibold text-gray-600 mb-1">Email</label><input type="email" value={customerCareEmail} onChange={(e) => setCustomerCareEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
               </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Award size={18} />Rewards & Pickup</h2>
-              <div><label className="block text-xs font-semibold text-gray-600 mb-1">Points earned per ₦1,000 spent</label><input type="number" value={pointsPer1000} onChange={(e) => setPointsPer1000(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" /></div>
-              <div><label className="block text-xs font-semibold text-gray-600 mb-1">Pickup times (one per line)</label><textarea value={pickupTimesText} onChange={(e) => setPickupTimesText(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 resize-none" /></div>
-              <div><label className="block text-xs font-semibold text-gray-600 mb-1">Late pickup disclaimer</label><textarea value={lateDisclaimer} onChange={(e) => setLateDisclaimer(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 resize-none" /></div>
+              <div><label className="block text-xs font-semibold text-gray-600 mb-1">Points earned per ₦1,000 spent</label><input type="number" value={pointsPer1000} onChange={(e) => setPointsPer1000(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500" /></div>
+              <div><label className="block text-xs font-semibold text-gray-600 mb-1">Pickup times (one per line)</label><textarea value={pickupTimesText} onChange={(e) => setPickupTimesText(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 resize-none" /></div>
+              <div><label className="block text-xs font-semibold text-gray-600 mb-1">Late pickup disclaimer</label><textarea value={lateDisclaimer} onChange={(e) => setLateDisclaimer(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 resize-none" /></div>
             </div>
 
-            <button onClick={saveSettings} disabled={savingSettings} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white px-5 py-2.5 rounded-xl text-sm font-semibold">
+            <button onClick={saveSettings} disabled={savingSettings} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white px-5 py-2.5 rounded-xl text-sm font-semibold">
               {savingSettings ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={16} />}Save All Settings
             </button>
           </div>
@@ -1041,6 +1111,7 @@ export default function Admin({ onLogout, onNotify }: AdminProps) {
 
         {/* PASSWORD */}
         {tab === 'password' && <PasswordManager onPasswordChange={() => {}} />}
+        </div>
       </div>
     </div>
   );

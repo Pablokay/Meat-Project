@@ -412,11 +412,21 @@ BEGIN
 END;
 $koyan$;
 
+-- Decrement livestock stock when an order is placed (kg vs portion-like units).
+CREATE OR REPLACE FUNCTION decrement_stock(p_livestock_id uuid, p_kg numeric, p_portions numeric)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $koyan$
+  UPDATE livestock SET
+    available_kg = GREATEST(0, available_kg - COALESCE(p_kg, 0)),
+    available_portions = GREATEST(0, available_portions - COALESCE(p_portions, 0))::int
+  WHERE id = p_livestock_id;
+$koyan$;
+
 GRANT EXECUTE ON FUNCTION get_order_by_number(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_orders_by_contact(text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_order_items_by_number(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_order_updates_by_number(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION confirm_order_receipt(text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION decrement_stock(uuid, numeric, numeric) TO anon, authenticated;
 
 -- ============================================================
 -- STORAGE BUCKETS + POLICIES

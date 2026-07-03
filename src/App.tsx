@@ -10,6 +10,9 @@ import UserLogin from './pages/UserLogin';
 import UserDashboard from './pages/UserDashboard';
 import Cart from './pages/Cart';
 import CheckoutModal from './components/CheckoutModal';
+import OrderSuccess from './components/OrderSuccess';
+import ResetPassword from './pages/ResetPassword';
+import BottomNav from './components/BottomNav';
 import { supabase, getProfile, signOutUser, type CartItem, type Profile, type Notification } from './lib/supabase';
 
 type Page = 'shop' | 'track' | 'admin' | 'admin-login' | 'user-login' | 'user-dashboard' | 'cart';
@@ -32,10 +35,13 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>(loadCart);
   const [checkingOut, setCheckingOut] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [successOrder, setSuccessOrder] = useState<{ orderNumber: string; accessToken: string; requiresConfirmation: boolean } | null>(null);
+  const [recovery, setRecovery] = useState(false);
 
   const isAdmin = !!profile?.is_admin;
 
@@ -47,6 +53,7 @@ export default function App() {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
       if (event === 'SIGNED_IN' && s) {
         if (!localStorage.getItem(LOGIN_AT_KEY)) {
           localStorage.setItem(LOGIN_AT_KEY, String(Date.now()));
@@ -65,10 +72,12 @@ export default function App() {
   useEffect(() => {
     if (session?.user) {
       if (!localStorage.getItem(LOGIN_AT_KEY)) localStorage.setItem(LOGIN_AT_KEY, String(Date.now()));
-      getProfile(session.user.id).then(setProfile);
+      setProfileReady(false);
+      getProfile(session.user.id).then((p) => { setProfile(p); setProfileReady(true); });
       setUserType('registered');
     } else {
       setProfile(null);
+      setProfileReady(true);
     }
   }, [session?.user?.id]);
 
@@ -195,10 +204,18 @@ export default function App() {
   };
 
   const handleUserLogin = async () => {
-    if (session?.user) setProfile(await getProfile(session.user.id));
+    const { data: { user } } = await supabase.auth.getUser();
+    const prof = user ? await getProfile(user.id) : null;
+    setProfile(prof);
     setUserType('registered');
-    setPage('shop');
-    window.location.hash = '';
+    // Admins go straight to the Staff Console; customers to the shop.
+    if (prof?.is_admin) {
+      setPage('admin');
+      window.location.hash = 'admin';
+    } else {
+      setPage('shop');
+      window.location.hash = '';
+    }
   };
 
   const handleGuestCheckout = () => {
@@ -215,26 +232,30 @@ export default function App() {
     window.location.hash = '';
   };
 
-  if (!authReady) {
+  // Wait for both the session AND (if signed in) the profile before routing,
+  // so admins never briefly see the storefront before the console loads.
+  if (!authReady || (session?.user && !profileReady)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <div className="w-8 h-8 border-[3px] border-forest-100 border-t-forest-700 rounded-full animate-spin" />
       </div>
     );
   }
+
+  if (recovery) return <ResetPassword onDone={() => { setRecovery(false); setPage('shop'); window.location.hash = ''; }} />;
 
   if (page === 'admin-login') return <AdminLogin onLogin={handleAdminLogin} />;
   if (page === 'admin' && isAdmin) return <Admin onLogout={handleLogout} onNotify={refreshNotifications} />;
   if (page === 'admin' && !isAdmin) return <AdminLogin onLogin={handleAdminLogin} />;
   if (page === 'user-login') return <UserLogin onLogin={handleUserLogin} onGuestCheckout={handleGuestCheckout} />;
   if (page === 'user-dashboard' && profile) {
-    return <UserDashboard profile={profile} onLogout={handleLogout} onShop={() => navigate('shop')} onRefreshProfile={async () => session?.user && setProfile(await getProfile(session.user.id))} />;
+    return <UserDashboard profile={profile} onLogout={handleLogout} onShop={() => navigate('shop')} onRefreshProfile={async () => session?.user && setProfile(await getProfile(session.user.id))} onReorder={(items) => { items.forEach(addToCart); navigate('cart'); }} />;
   }
 
   const cartCount = cartItems.length;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pb-16 md:pb-0">
       <Header
         currentPage={page === 'track' ? 'track' : page === 'cart' ? 'cart' : 'shop'}
         onNavigate={navigate}
@@ -262,13 +283,30 @@ export default function App() {
       </main>
       <Footer />
 
+      <BottomNav currentPage={page === 'track' ? 'track' : page === 'cart' ? 'cart' : 'shop'} onNavigate={navigate} cartCount={cartCount} isLoggedIn={!!profile} />
+
       {checkingOut && (
         <CheckoutModal
           items={cartItems}
           profile={profile}
           userType={userType}
           onClose={() => setCheckingOut(false)}
-          onSuccess={() => { setCheckingOut(false); clearCart(); refreshNotifications(); navigate('track'); }}
+          onSuccess={(orderNumber, accessToken, requiresConfirmation) => {
+            setCheckingOut(false);
+            clearCart();
+            refreshNotifications();
+            setSuccessOrder({ orderNumber, accessToken, requiresConfirmation });
+          }}
+        />
+      )}
+
+      {successOrder && (
+        <OrderSuccess
+          orderNumber={successOrder.orderNumber}
+          accessToken={successOrder.accessToken}
+          requiresConfirmation={successOrder.requiresConfirmation}
+          onTrackOrder={() => { setSuccessOrder(null); navigate('track'); }}
+          onClose={() => { setSuccessOrder(null); navigate('shop'); }}
         />
       )}
     </div>

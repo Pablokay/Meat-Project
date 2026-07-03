@@ -7,7 +7,7 @@ type CheckoutModalProps = {
   profile: Profile | null;
   userType: 'guest' | 'registered' | null;
   onClose: () => void;
-  onSuccess: (orderNumber: string, accessToken: string) => void;
+  onSuccess: (orderNumber: string, accessToken: string, requiresConfirmation: boolean) => void;
 };
 
 type Step = 'info' | 'fulfillment' | 'payment' | 'review';
@@ -201,17 +201,25 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
       });
     } catch { /* ignore email failure */ }
 
+    // Decrement stock per line item (kg vs portion-like units).
+    for (const i of items) {
+      if (!i.livestock_id) continue;
+      const kg = i.unit === 'kg' ? i.quantity : 0;
+      const portions = i.unit === 'kg' ? 0 : i.quantity;
+      try { await supabase.rpc('decrement_stock', { p_livestock_id: i.livestock_id, p_kg: kg, p_portions: portions }); } catch { /* ignore */ }
+    }
+
     setSubmitting(false);
-    onSuccess(data.order_number, data.access_token);
+    onSuccess(data.order_number, data.access_token, requiresConfirmation);
   }
 
   const inputCls = (err?: string) =>
-    `w-full pl-9 pr-4 py-2.5 border-2 rounded-xl text-sm focus:outline-none ${err ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-400'}`;
+    `w-full pl-9 pr-4 py-2.5 border-2 rounded-xl text-sm focus:outline-none ${err ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-forest-600'}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-lg shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white z-10 border-b border-gray-100 p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-900">Checkout ({items.length} item{items.length > 1 ? 's' : ''})</h2>
@@ -219,7 +227,7 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
           </div>
           <div className="flex items-center gap-1">
             {steps.map((s, i) => (
-              <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= stepIdx ? 'bg-blue-600' : 'bg-gray-200'}`} />
+              <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= stepIdx ? 'bg-forest-700' : 'bg-gray-200'}`} />
             ))}
           </div>
         </div>
@@ -265,14 +273,14 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">Fulfillment Method</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setFulfillment('pickup')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${fulfillment === 'pickup' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <Store size={20} className={fulfillment === 'pickup' ? 'text-blue-600' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${fulfillment === 'pickup' ? 'text-blue-700' : 'text-gray-600'}`}>Pickup</span>
+                  <button onClick={() => setFulfillment('pickup')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${fulfillment === 'pickup' ? 'border-forest-600 bg-forest-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <Store size={20} className={fulfillment === 'pickup' ? 'text-forest-700' : 'text-gray-400'} />
+                    <span className={`text-sm font-bold ${fulfillment === 'pickup' ? 'text-forest-700' : 'text-gray-600'}`}>Pickup</span>
                     <span className="text-xs text-gray-500">Free</span>
                   </button>
-                  <button onClick={() => setFulfillment('delivery')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${fulfillment === 'delivery' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <Truck size={20} className={fulfillment === 'delivery' ? 'text-blue-600' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${fulfillment === 'delivery' ? 'text-blue-700' : 'text-gray-600'}`}>Delivery</span>
+                  <button onClick={() => setFulfillment('delivery')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${fulfillment === 'delivery' ? 'border-forest-600 bg-forest-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <Truck size={20} className={fulfillment === 'delivery' ? 'text-forest-700' : 'text-gray-400'} />
+                    <span className={`text-sm font-bold ${fulfillment === 'delivery' ? 'text-forest-700' : 'text-gray-600'}`}>Delivery</span>
                     <span className="text-xs text-gray-500">Location fee</span>
                   </button>
                 </div>
@@ -285,9 +293,9 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
                     {errors.location && <p className="text-xs text-red-500 mb-1">{errors.location}</p>}
                     <div className="grid grid-cols-1 gap-2">
                       {locations.map((loc) => (
-                        <button key={loc.id} onClick={() => setSelectedLocation(loc)} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left ${selectedLocation?.id === loc.id ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <button key={loc.id} onClick={() => setSelectedLocation(loc)} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left ${selectedLocation?.id === loc.id ? 'border-forest-600 bg-forest-50' : 'border-gray-200 hover:border-gray-300'}`}>
                           <span className="text-sm font-medium text-gray-900">{loc.name}</span>
-                          <span className="text-sm font-bold text-blue-700">{fmt(loc.fee)}</span>
+                          <span className="text-sm font-bold text-forest-700">{fmt(loc.fee)}</span>
                         </button>
                       ))}
                       {locations.length === 0 && <p className="text-xs text-gray-400">No delivery locations configured yet.</p>}
@@ -297,7 +305,7 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Delivery Address *</label>
                     <div className="relative">
                       <MapPin size={16} className="absolute left-3 top-3 text-gray-400" />
-                      <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} rows={2} placeholder="Enter your delivery address..." className={`w-full pl-9 pr-4 py-2.5 border-2 rounded-xl text-sm focus:outline-none resize-none ${errors.address ? 'border-red-400' : 'border-gray-200 focus:border-blue-400'}`} />
+                      <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} rows={2} placeholder="Enter your delivery address..." className={`w-full pl-9 pr-4 py-2.5 border-2 rounded-xl text-sm focus:outline-none resize-none ${errors.address ? 'border-red-400' : 'border-gray-200 focus:border-forest-600'}`} />
                     </div>
                     {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
                   </div>
@@ -308,7 +316,7 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
                     <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1"><Clock size={14} />Preferred Pickup Time</label>
                     <div className="grid grid-cols-1 gap-2">
                       {pickupTimes.map((t) => (
-                        <button key={t} onClick={() => setPickupTime(t)} className={`p-3 rounded-xl border-2 text-left text-sm font-medium transition-all ${pickupTime === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>{t}</button>
+                        <button key={t} onClick={() => setPickupTime(t)} className={`p-3 rounded-xl border-2 text-left text-sm font-medium transition-all ${pickupTime === t ? 'border-forest-600 bg-forest-50 text-forest-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>{t}</button>
                       ))}
                       {pickupTimes.length === 0 && <p className="text-xs text-gray-400">Pickup times will be confirmed by our team.</p>}
                     </div>
@@ -326,21 +334,21 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
 
           {step === 'payment' && (
             <div className="space-y-5">
-              <div className="bg-blue-50 rounded-xl p-4 space-y-1">
+              <div className="bg-forest-50 rounded-xl p-4 space-y-1">
                 <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal</span><span className="font-semibold">{fmt(subtotal)}</span></div>
                 {deliveryFee > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Delivery Fee</span><span className="font-semibold">{fmt(deliveryFee)}</span></div>}
-                <div className="flex justify-between text-sm font-bold border-t border-blue-200 pt-1"><span>Total</span><span className="text-blue-700 text-lg">{fmt(total)}</span></div>
+                <div className="flex justify-between text-sm font-bold border-t border-forest-700/15 pt-1"><span>Total</span><span className="text-forest-700 text-lg">{fmt(total)}</span></div>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">Payment Method</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setPaymentMethod('bank_transfer')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMethod === 'bank_transfer' ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
-                    <Building2 size={18} className={paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-400'} />
-                    <span className={`text-xs font-bold ${paymentMethod === 'bank_transfer' ? 'text-blue-700' : 'text-gray-600'}`}>Bank Transfer</span>
+                  <button onClick={() => setPaymentMethod('bank_transfer')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMethod === 'bank_transfer' ? 'border-forest-600 bg-forest-50' : 'border-gray-200'}`}>
+                    <Building2 size={18} className={paymentMethod === 'bank_transfer' ? 'text-forest-700' : 'text-gray-400'} />
+                    <span className={`text-xs font-bold ${paymentMethod === 'bank_transfer' ? 'text-forest-700' : 'text-gray-600'}`}>Bank Transfer</span>
                   </button>
-                  <button onClick={() => setPaymentMethod('virtual')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMethod === 'virtual' ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
-                    <Smartphone size={18} className={paymentMethod === 'virtual' ? 'text-blue-600' : 'text-gray-400'} />
-                    <span className={`text-xs font-bold ${paymentMethod === 'virtual' ? 'text-blue-700' : 'text-gray-600'}`}>Virtual Account</span>
+                  <button onClick={() => setPaymentMethod('virtual')} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMethod === 'virtual' ? 'border-forest-600 bg-forest-50' : 'border-gray-200'}`}>
+                    <Smartphone size={18} className={paymentMethod === 'virtual' ? 'text-forest-700' : 'text-gray-400'} />
+                    <span className={`text-xs font-bold ${paymentMethod === 'virtual' ? 'text-forest-700' : 'text-gray-600'}`}>Virtual Account</span>
                   </button>
                 </div>
               </div>
@@ -348,11 +356,11 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-gray-700">Transfer to any of these accounts:</p>
                   {banks.map((b) => (
-                    <div key={b.id} className="bg-gray-50 rounded-xl p-4 space-y-1">
+                    <div key={b.id} className="bg-cream rounded-xl p-4 space-y-1">
                       <p className="text-xs text-gray-500">{b.bank_name}</p>
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-gray-900">{b.account_number}</p>
-                        <button onClick={() => copyText(b.account_number, b.id)} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"><Copy size={11} />{copied === b.id ? 'Copied!' : 'Copy'}</button>
+                        <button onClick={() => copyText(b.account_number, b.id)} className="text-xs text-forest-700 hover:text-forest-700 font-medium flex items-center gap-1"><Copy size={11} />{copied === b.id ? 'Copied!' : 'Copy'}</button>
                       </div>
                       <p className="text-xs text-gray-600">{b.account_name}</p>
                     </div>
@@ -361,13 +369,13 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
               )}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Payment Reference <span className="font-normal text-gray-400">(optional)</span></label>
-                <input type="text" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} placeholder="Transaction reference" className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
+                <input type="text" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} placeholder="Transaction reference" className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-forest-600" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Upload Payment Proof <span className="font-normal text-gray-400">(optional)</span></label>
                 <input ref={proofInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && uploadProof(e.target.files[0])} />
-                <button onClick={() => proofInputRef.current?.click()} disabled={uploadingProof} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-4 text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
-                  {uploadingProof ? <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> : <Upload size={16} />}
+                <button onClick={() => proofInputRef.current?.click()} disabled={uploadingProof} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-4 text-sm text-gray-500 hover:border-forest-300 hover:text-forest-700 transition-colors">
+                  {uploadingProof ? <div className="w-4 h-4 border-2 border-forest-600 border-t-transparent rounded-full animate-spin" /> : <Upload size={16} />}
                   {paymentProofUrl ? 'Proof uploaded' : 'Click to upload'}
                 </button>
               </div>
@@ -382,7 +390,7 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
                   <p className="text-xs text-amber-700">This order needs admin confirmation before payment. We'll notify you when it's confirmed so you can pay.</p>
                 </div>
               )}
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              <div className="bg-cream rounded-xl p-4 space-y-2">
                 <h3 className="text-sm font-bold text-gray-700">Items</h3>
                 {items.map((i) => (
                   <div key={i.id} className="flex justify-between text-sm">
@@ -391,32 +399,32 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
                   </div>
                 ))}
               </div>
-              <div className="bg-blue-50 rounded-xl p-4 space-y-1">
+              <div className="bg-forest-50 rounded-xl p-4 space-y-1">
                 <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal</span><span className="font-semibold">{fmt(subtotal)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-gray-600">Fulfillment</span><span className="font-semibold capitalize">{fulfillment}{fulfillment === 'delivery' && selectedLocation ? ` · ${selectedLocation.name}` : ''}</span></div>
                 {deliveryFee > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Delivery Fee</span><span className="font-semibold">{fmt(deliveryFee)}</span></div>}
-                <div className="flex justify-between text-sm font-bold border-t border-blue-200 pt-1"><span>Total</span><span className="text-blue-700">{fmt(total)}</span></div>
+                <div className="flex justify-between text-sm font-bold border-t border-forest-700/15 pt-1"><span>Total</span><span className="text-forest-700">{fmt(total)}</span></div>
               </div>
               {fulfillment === 'delivery' && (
-                <div className="bg-gray-50 rounded-xl p-4">
+                <div className="bg-cream rounded-xl p-4">
                   <h3 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin size={14} />Delivery Address</h3>
                   <p className="text-sm text-gray-600">{form.address || '—'}</p>
                 </div>
               )}
               {fulfillment === 'pickup' && pickupTime && (
-                <div className="bg-gray-50 rounded-xl p-4">
+                <div className="bg-cream rounded-xl p-4">
                   <h3 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1"><Clock size={14} />Pickup Time</h3>
                   <p className="text-sm text-gray-600">{pickupTime}</p>
                 </div>
               )}
-              <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+              <div className="bg-cream rounded-xl p-4 space-y-1">
                 <h3 className="text-sm font-bold text-gray-700">Contact</h3>
                 <p className="text-sm text-gray-600">{form.name}</p>
                 {form.email && <p className="text-sm text-gray-600">{form.email}</p>}
                 <p className="text-sm text-gray-600">{form.phone}</p>
               </div>
               {errors.submit && <p className="text-sm text-red-500">{errors.submit}</p>}
-              <button onClick={submitOrder} disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors">
+              <button onClick={submitOrder} disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-forest-700 hover:bg-forest-800 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors">
                 {submitting ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={18} />}
                 {requiresConfirmation ? 'Place Order (await confirmation)' : 'Confirm & Place Order'}
               </button>
@@ -429,7 +437,7 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
             <button onClick={prev} className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 font-medium"><ChevronLeft size={16} />Back</button>
           ) : <div />}
           {stepIdx < steps.length - 1 && (
-            <button onClick={next} className="flex items-center gap-1 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+            <button onClick={next} className="flex items-center gap-1 bg-forest-700 hover:bg-forest-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
               Continue <ChevronRight size={16} />
             </button>
           )}

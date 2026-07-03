@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Beef, Shield, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
+import { Lock, Shield, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { signInUser, sendPasswordReset, getProfile, signOutUser } from '../lib/supabase';
 
 type AdminLoginProps = {
@@ -56,10 +56,10 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
 
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-700 rounded-2xl mb-4 shadow-lg shadow-blue-700/20">
-            <Beef size={32} className="text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-2xl mb-4 shadow-lg shadow-emerald-600/30">
+            <Shield size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Admin Portal</h1>
+          <h1 className="text-2xl font-bold text-white">Staff Console</h1>
           <p className="text-gray-400 text-sm mt-1">Koyan FreshLivestock Management</p>
         </div>
 
@@ -108,7 +108,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
                 </div>
               )}
 
-              <button type="submit" disabled={loading} className="w-full bg-blue-700 hover:bg-blue-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+              <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
                 {loading ? 'Signing In...' : 'Sign In'}
               </button>
               <button type="button" onClick={() => { setShowForgot(true); setForgotMsg(''); }} className="w-full text-xs text-gray-500 hover:text-gray-700 font-medium">
@@ -123,7 +123,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
                 <input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="admin@koyanfresh.com" />
               </div>
               {forgotMsg && <p className="text-sm text-blue-600">{forgotMsg}</p>}
-              <button type="submit" className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-lg text-sm">Send Reset Link</button>
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm">Send Reset Link</button>
               <button type="button" onClick={() => setShowForgot(false)} className="w-full text-xs text-gray-500 hover:text-gray-700 font-medium">Back to sign in</button>
             </form>
           )}

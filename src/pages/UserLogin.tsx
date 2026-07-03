@@ -94,13 +94,13 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
   }
 
   const inputCls =
-    'w-full pl-9 pr-10 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors';
+    'w-full pl-9 pr-10 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-600 transition-colors';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-cream to-sage-100 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-700 rounded-2xl mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-forest-700 rounded-2xl mb-4 shadow-lg">
             <ShoppingBag size={28} className="text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Koyan Fresh</h1>
@@ -112,13 +112,13 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
             <div className="flex gap-2 mb-6">
               <button
                 onClick={() => { setMode('login'); reset(); }}
-                className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${mode === 'login' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${mode === 'login' ? 'bg-forest-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 Sign In
               </button>
               <button
                 onClick={() => { setMode('signup'); reset(); }}
-                className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${mode === 'signup' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${mode === 'signup' ? 'bg-forest-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 Create Account
               </button>
@@ -164,7 +164,7 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <button type="button" onClick={() => { setMode('forgot'); reset(); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-1.5">
+                <button type="button" onClick={() => { setMode('forgot'); reset(); }} className="text-xs text-forest-700 hover:text-forest-700 font-medium mt-1.5">
                   Forgot password?
                 </button>
               </div>
@@ -172,7 +172,7 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
               {error && <ErrorBox msg={error} />}
               {success && <SuccessBox msg={success} />}
 
-              <button type="submit" disabled={loading} className="w-full bg-blue-700 hover:bg-blue-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm active:scale-[0.98]">
+              <button type="submit" disabled={loading} className="w-full bg-forest-700 hover:bg-forest-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm active:scale-[0.98]">
                 {loading ? 'Signing In...' : 'Sign In'}
               </button>
             </form>
@@ -215,7 +215,7 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
               {error && <ErrorBox msg={error} />}
               {success && <SuccessBox msg={success} />}
 
-              <button type="submit" disabled={loading} className="w-full bg-blue-700 hover:bg-blue-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm active:scale-[0.98]">
+              <button type="submit" disabled={loading} className="w-full bg-forest-700 hover:bg-forest-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm active:scale-[0.98]">
                 {loading ? 'Creating Account...' : 'Create Account'}
               </button>
             </form>
@@ -233,7 +233,7 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
               </div>
               {error && <ErrorBox msg={error} />}
               {success && <SuccessBox msg={success} />}
-              <button type="submit" disabled={loading} className="w-full bg-blue-700 hover:bg-blue-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+              <button type="submit" disabled={loading} className="w-full bg-forest-700 hover:bg-forest-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
                 {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
               <button type="button" onClick={() => { setMode('login'); reset(); }} className="w-full text-sm text-gray-600 hover:text-gray-800 font-medium">

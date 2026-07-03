@@ -89,60 +89,70 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
   const statusConfig = selectedOrder ? (STATUS_CONFIG[selectedOrder.order_status] ?? STATUS_CONFIG.pending) : null;
   const stepIndex = selectedOrder ? STEPS.indexOf(selectedOrder.order_status) : -1;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-gray-900 text-white py-12">
-        <div className="max-w-2xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-            <Package size={13} /> Order Tracking
-          </div>
-          <h1 className="text-3xl font-black">Track Your Order</h1>
-          <p className="text-gray-400 mt-2 text-sm">Search by tracking ID or find all your orders</p>
+  const inputCls = 'w-full pl-10 pr-4 py-3 rounded-lg bg-cream border border-forest-700/10 text-forest-900 text-sm font-medium focus:outline-none focus:border-forest-400';
 
-          <div className="mt-6 flex justify-center gap-2 mb-4">
-            <button onClick={() => setSearchMode('tracking')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${searchMode === 'tracking' ? 'bg-blue-600 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}>
-              <Hash size={14} />By Tracking ID
+  return (
+    <div className="min-h-screen bg-cream">
+      {/* Hero */}
+      <section className="relative w-full bg-gradient-to-br from-forest-800 to-forest-900 pt-14 pb-28 text-center overflow-hidden">
+        <div className="max-w-2xl mx-auto px-4 relative">
+          <span className="inline-flex items-center gap-2 tag-pill bg-cream/10 text-cream border-cream/15">
+            <Package size={13} /> Order Tracking
+          </span>
+          <h1 className="mt-4 text-4xl sm:text-5xl font-bold text-cream leading-tight">Track your <span className="accent text-sage-300">order</span></h1>
+          <p className="text-cream/60 mt-3 text-sm">Search by tracking ID, or find every order with your phone or email.</p>
+        </div>
+      </section>
+
+      {/* Floating search card */}
+      <div className="max-w-2xl mx-auto px-4 -mt-16 relative z-10">
+        <div className="surface p-5 sm:p-6">
+          <div className="flex gap-1.5 p-1 bg-forest-50 rounded-full mb-4 w-full sm:w-auto sm:inline-flex">
+            <button onClick={() => setSearchMode('tracking')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${searchMode === 'tracking' ? 'bg-forest-700 text-cream' : 'text-forest-800/60 hover:text-forest-800'}`}>
+              <Hash size={14} />Tracking ID
             </button>
-            <button onClick={() => setSearchMode('phone')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${searchMode === 'phone' ? 'bg-blue-600 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}>
-              <User size={14} />By Phone / Email
+            <button onClick={() => setSearchMode('phone')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${searchMode === 'phone' ? 'bg-forest-700 text-cream' : 'text-forest-800/60 hover:text-forest-800'}`}>
+              <User size={14} />Phone / Email
             </button>
           </div>
 
           {searchMode === 'tracking' ? (
-            <div className="flex gap-3">
-              <input type="text" placeholder="e.g. ORD-AB12CD34" value={query} onChange={e => setQuery(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && searchByTracking()} className="flex-1 px-4 py-3 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400" />
-              <button onClick={() => searchByTracking()} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white px-5 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 transition-colors">
-                {loading ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Search size={16} />} Track
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Hash size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-forest-800/40" />
+                <input type="text" placeholder="e.g. ORD-AB12CD34" value={query} onChange={e => setQuery(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && searchByTracking()} className={inputCls} />
+              </div>
+              <button onClick={() => searchByTracking()} disabled={loading} className="btn-primary py-3 sm:w-auto">
+                {loading ? <div className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" /> : <Search size={16} />} Track
               </button>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="tel" placeholder="Phone number" value={phoneQuery} onChange={e => setPhoneQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchByPhone()} className="w-full pl-9 pr-4 py-3 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="relative">
+                  <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-forest-800/40" />
+                  <input type="tel" placeholder="Phone number" value={phoneQuery} onChange={e => setPhoneQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchByPhone()} className={inputCls} />
                 </div>
-                <span className="text-gray-500 self-center">or</span>
-                <div className="relative flex-1">
-                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="email" placeholder="Email address" value={emailQuery} onChange={e => setEmailQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchByPhone()} className="w-full pl-9 pr-4 py-3 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <div className="relative">
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-forest-800/40" />
+                  <input type="email" placeholder="Email address" value={emailQuery} onChange={e => setEmailQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchByPhone()} className={inputCls} />
                 </div>
               </div>
-              <button onClick={() => searchByPhone()} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white px-5 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
-                {loading ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Search size={16} />} Find My Orders
+              <button onClick={() => searchByPhone()} disabled={loading} className="btn-primary w-full py-3">
+                {loading ? <div className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" /> : <Search size={16} />} Find My Orders
               </button>
             </div>
           )}
-          {error && <div className="mt-3 flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2.5 text-red-300 text-sm"><AlertCircle size={15} />{error}</div>}
+          {error && <div className="mt-3 flex items-center gap-2 bg-clay/10 border border-clay/20 rounded-lg px-4 py-2.5 text-clay text-sm"><AlertCircle size={15} />{error}</div>}
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
         {orders.length > 1 && !selectedOrder && (
           <div className="space-y-3">
             <h2 className="text-lg font-bold text-gray-900">Your Orders ({orders.length})</h2>
             {orders.map(order => (
-              <button key={order.id} onClick={() => selectOrder(order)} className="w-full bg-white rounded-2xl border border-gray-100 p-4 text-left hover:shadow-md transition-all">
+              <button key={order.id} onClick={() => selectOrder(order)} className="w-full bg-white rounded-lg border border-forest-700/10 p-4 text-left hover:shadow-md transition-all">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -159,7 +169,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
         )}
 
         {orders.length === 1 && !selectedOrder && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <div className="bg-white rounded-lg border border-forest-700/10 p-4">
             <button onClick={() => selectOrder(orders[0])} className="w-full text-left">
               <div className="flex items-center justify-between">
                 <div><span className="font-bold text-gray-900 text-sm">{orders[0].order_number}</span><p className="text-xs text-gray-500 mt-0.5">{orders[0].livestock_name} &middot; {fmt(orders[0].total_amount)}</p></div>
@@ -173,7 +183,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
           <div className="space-y-4">
             {orders.length > 1 && <button onClick={() => { setSelectedOrder(null); setUpdates([]); }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium"><ArrowLeft size={14} />Back to all orders</button>}
 
-            <div className={`border rounded-2xl p-5 ${statusConfig.bg}`}>
+            <div className={`border rounded-lg p-5 ${statusConfig.bg}`}>
               <div className="flex items-center gap-3">
                 <div className={statusConfig.color}>{statusConfig.icon}</div>
                 <div className="flex-1">
@@ -184,13 +194,13 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
             </div>
 
             {(selectedOrder.order_status === 'ready' || selectedOrder.order_status === 'in_transit') && !selectedOrder.customer_confirmed && (
-              <div className="bg-white rounded-2xl border-2 border-blue-200 p-5">
+              <div className="bg-white rounded-lg border-2 border-forest-700/15 p-5">
                 <div className="flex items-start gap-3">
-                  <div className="bg-blue-100 p-2 rounded-xl flex-shrink-0"><CheckCircle2 size={20} className="text-blue-600" /></div>
+                  <div className="bg-sage-100 p-2 rounded-xl flex-shrink-0"><CheckCircle2 size={20} className="text-forest-700" /></div>
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900 text-sm">Confirm Receipt</h3>
                     <p className="text-xs text-gray-500 mt-0.5">Click below to confirm you have received your order.</p>
-                    <button onClick={() => confirmDelivery(selectedOrder)} disabled={confirming} className="mt-3 flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                    <button onClick={() => confirmDelivery(selectedOrder)} disabled={confirming} className="mt-3 flex items-center gap-2 bg-forest-700 hover:bg-forest-800 disabled:bg-sage-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
                       {confirming ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Confirming...</> : <><CheckCircle2 size={16} />Yes, I Have Received My Order</>}
                     </button>
                   </div>
@@ -199,7 +209,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
             )}
 
             {selectedOrder.order_status !== 'cancelled' && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <div className="bg-white rounded-lg border border-forest-700/10 p-5">
                 <h3 className="text-sm font-bold text-gray-700 mb-4">Order Progress</h3>
                 <div className="relative">
                   <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-100" />
@@ -208,7 +218,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
                       const cfg = STATUS_CONFIG[s]; const done = i <= stepIndex; const active = i === stepIndex;
                       return (
                         <div key={s} className="flex items-start gap-4 relative">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all ${done ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-300'} ${active ? 'ring-4 ring-blue-100' : ''}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all ${done ? 'bg-forest-700 text-cream' : 'bg-forest-50 text-forest-800/30'} ${active ? 'ring-4 ring-sage-200' : ''}`}>
                             {done ? <CheckCircle2 size={16} /> : cfg.icon}
                           </div>
                           <div className="pt-1"><p className={`text-sm font-semibold ${done ? 'text-gray-900' : 'text-gray-400'}`}>{cfg.label}</p></div>
@@ -220,14 +230,14 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="bg-white rounded-lg border border-forest-700/10 p-5">
               <h3 className="text-sm font-bold text-gray-700 mb-4">Order Summary</h3>
               <div className="space-y-2.5 text-sm">
                 {[
                   { label: 'Item', value: selectedOrder.livestock_name },
                   { label: 'Quantity', value: `${selectedOrder.quantity} ${selectedOrder.unit === 'kg' ? 'KG' : 'Portion(s)'}` },
-                  { label: 'Preparation', value: selectedOrder.preparation_type === 'roasted' ? 'Roasted' : 'Fresh' },
-                  { label: 'Portion Size', value: selectedOrder.portion_size.charAt(0).toUpperCase() + selectedOrder.portion_size.slice(1) },
+                  ...(selectedOrder.preparation_type ? [{ label: 'Preparation', value: selectedOrder.preparation_type }] : []),
+                  ...(selectedOrder.portion_size ? [{ label: 'Portion Size', value: selectedOrder.portion_size.charAt(0).toUpperCase() + selectedOrder.portion_size.slice(1) }] : []),
                   ...(selectedOrder.customer_comment ? [{ label: 'Comment', value: selectedOrder.customer_comment }] : []),
                   { label: 'Fulfillment', value: selectedOrder.fulfillment_type === 'delivery' ? 'Home Delivery' : 'Self Pickup' },
                   { label: 'Scheduled', value: selectedOrder.delivery_date ? `${new Date(selectedOrder.delivery_date + 'T12:00:00').toLocaleDateString('en-NG', { weekday: 'short', month: 'short', day: 'numeric' })} - ${selectedOrder.delivery_slot_label}` : 'Not set' },
@@ -235,13 +245,13 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-start justify-between gap-3"><span className="text-gray-500 w-28 flex-shrink-0">{label}</span><span className="font-medium text-gray-900 text-right">{value}</span></div>
                 ))}
-                <div className="border-t border-gray-100 pt-2.5 flex justify-between"><span className="font-bold text-gray-900">Total</span><span className="font-bold text-blue-700 text-lg">{fmt(selectedOrder.total_amount)}</span></div>
+                <div className="border-t border-forest-700/10 pt-2.5 flex justify-between"><span className="font-bold text-gray-900">Total</span><span className="font-bold text-forest-700 text-lg">{fmt(selectedOrder.total_amount)}</span></div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="bg-white rounded-lg border border-forest-700/10 p-5">
               <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                {selectedOrder.fulfillment_type === 'delivery' ? <Truck size={15} className="text-blue-600" /> : <Store size={15} className="text-blue-600" />}
+                {selectedOrder.fulfillment_type === 'delivery' ? <Truck size={15} className="text-forest-700" /> : <Store size={15} className="text-forest-700" />}
                 {selectedOrder.fulfillment_type === 'delivery' ? 'Delivery Details' : 'Pickup Details'}
               </h3>
               {selectedOrder.fulfillment_type === 'delivery' ? (
@@ -251,7 +261,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
               )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="bg-white rounded-lg border border-forest-700/10 p-5">
               <h3 className="text-sm font-bold text-gray-700 mb-3">Contact Information</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600"><Phone size={14} />{selectedOrder.customer_phone}</div>
@@ -261,7 +271,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
             </div>
 
             {updates.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <div className="bg-white rounded-lg border border-forest-700/10 p-5">
                 <button onClick={() => setShowFullTimeline(v => !v)} className="w-full flex items-center justify-between">
                   <h3 className="text-sm font-bold text-gray-700">Order Updates ({updates.length})</h3>
                   {showFullTimeline ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
@@ -269,10 +279,10 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
                 <div className={`space-y-3 mt-3 ${showFullTimeline ? '' : 'max-h-32 overflow-hidden'}`}>
                   {updates.map(upd => (
                     <div key={upd.id} className="flex gap-3">
-                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${upd.created_by === 'customer' ? 'bg-blue-400' : 'bg-green-400'}`} />
+                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${upd.created_by === 'customer' ? 'bg-sage-400' : 'bg-green-400'}`} />
                       <div>
                         <p className="text-xs text-gray-900 leading-relaxed">{upd.message}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{new Date(upd.created_at).toLocaleString('en-NG')}{upd.created_by === 'customer' && <span className="ml-1 text-blue-500 font-medium">(by you)</span>}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{new Date(upd.created_at).toLocaleString('en-NG')}{upd.created_by === 'customer' && <span className="ml-1 text-forest-600 font-medium">(by you)</span>}</p>
                       </div>
                     </div>
                   ))}
