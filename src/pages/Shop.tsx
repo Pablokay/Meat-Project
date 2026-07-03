@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
 import { ListFilter as Filter, Leaf, Search, Calendar, Clock } from 'lucide-react';
-import { supabase, type Livestock, type DeliverySlot } from '../lib/supabase';
+import { supabase, type Livestock, type DeliverySlot, type CartItem } from '../lib/supabase';
 import LivestockCard from '../components/LivestockCard';
 import OrderModal from '../components/OrderModal';
-import OrderSuccess from '../components/OrderSuccess';
 
 type ShopProps = {
   onNavigateToTrack: (orderNumber?: string) => void;
+  onAddToCart: (item: CartItem) => void;
+  onGoToCart: () => void;
 };
 
 const TYPES = ['All', 'Cow', 'Ram', 'Goat', 'Chicken', 'Turkey', 'Pig'];
 
-export default function Shop({ onNavigateToTrack }: ShopProps) {
+export default function Shop({ onAddToCart, onGoToCart }: ShopProps) {
   const [livestock, setLivestock] = useState<Livestock[]>([]);
   const [slots, setSlots] = useState<DeliverySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('All');
   const [search, setSearch] = useState('');
   const [orderingLivestock, setOrderingLivestock] = useState<Livestock | null>(null);
-  const [successData, setSuccessData] = useState<{ orderNumber: string; accessToken: string } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -149,10 +149,12 @@ export default function Shop({ onNavigateToTrack }: ShopProps) {
       </section>
 
       {orderingLivestock && (
-        <OrderModal livestock={orderingLivestock} onClose={() => setOrderingLivestock(null)} onSuccess={(orderNumber, accessToken) => { setOrderingLivestock(null); setSuccessData({ orderNumber, accessToken }); }} />
-      )}
-      {successData && (
-        <OrderSuccess orderNumber={successData.orderNumber} accessToken={successData.accessToken} onTrackOrder={() => { setSuccessData(null); onNavigateToTrack(successData.orderNumber); }} onClose={() => setSuccessData(null)} />
+        <OrderModal
+          livestock={orderingLivestock}
+          onClose={() => setOrderingLivestock(null)}
+          onAddToCart={onAddToCart}
+          onGoToCart={onGoToCart}
+        />
       )}
     </div>
   );

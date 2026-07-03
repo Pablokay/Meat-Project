@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 type PasswordManagerProps = {
   onPasswordChange: (newPassword: string) => void;
@@ -16,15 +17,9 @@ export default function PasswordManager({ onPasswordChange }: PasswordManagerPro
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const storedPassword = localStorage.getItem('admin_password') || 'freshlivestock2024';
-
   function validatePassword() {
     if (!currentPassword) {
       setError('Current password is required');
-      return false;
-    }
-    if (currentPassword !== storedPassword) {
-      setError('Current password is incorrect');
       return false;
     }
     if (!newPassword || newPassword.length < 8) {
@@ -51,17 +46,31 @@ export default function PasswordManager({ onPasswordChange }: PasswordManagerPro
 
     setSaving(true);
     try {
-      // Save new password to localStorage
-      localStorage.setItem('admin_password', newPassword);
+      // Re-authenticate to verify the current password.
+      const { data: sessionData } = await supabase.auth.getUser();
+      const email = sessionData.user?.email;
+      if (email) {
+        const { error: reauthErr } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+        if (reauthErr) {
+          setError('Current password is incorrect');
+          setSaving(false);
+          return;
+        }
+      }
+      const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (updErr) {
+        setError(updErr.message || 'Failed to change password');
+        setSaving(false);
+        return;
+      }
       setSuccess('Password changed successfully!');
       onPasswordChange(newPassword);
-      
-      // Reset form
+
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
+    } catch {
       setError('Failed to change password');
     } finally {
       setSaving(false);

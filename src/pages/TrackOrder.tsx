@@ -11,17 +11,21 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   confirmed: { label: 'Order Confirmed', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', icon: <CheckCircle2 size={16} /> },
   processing: { label: 'Processing', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200', icon: <Package size={16} /> },
   ready: { label: 'Ready for Pickup/Delivery', color: 'text-teal-700', bg: 'bg-teal-50 border-teal-200', icon: <Package size={16} /> },
+  in_transit: { label: 'In Transit', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200', icon: <Truck size={16} /> },
   delivered: { label: 'Delivered / Picked Up', color: 'text-green-700', bg: 'bg-green-50 border-green-200', icon: <CheckCircle2 size={16} /> },
   cancelled: { label: 'Cancelled', color: 'text-red-700', bg: 'bg-red-50 border-red-200', icon: <AlertCircle size={16} /> },
+  awaiting_confirmation: { label: 'Awaiting Confirmation', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', icon: <Clock size={16} /> },
+  awaiting_payment: { label: 'Awaiting Payment', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', icon: <Clock size={16} /> },
 };
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800', confirmed: 'bg-blue-100 text-blue-800',
   processing: 'bg-orange-100 text-orange-800', ready: 'bg-teal-100 text-teal-800',
+  in_transit: 'bg-indigo-100 text-indigo-800',
   delivered: 'bg-green-100 text-green-800', cancelled: 'bg-red-100 text-red-800',
 };
 
-const STEPS = ['pending', 'confirmed', 'processing', 'ready', 'delivered'];
+const STEPS = ['pending', 'confirmed', 'processing', 'ready', 'in_transit', 'delivered'];
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
@@ -51,39 +55,36 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
     const q = (overrideQuery ?? query).trim().toUpperCase();
     if (!q) { setError('Please enter your order number'); return; }
     setLoading(true); setError(''); setOrders([]); setSelectedOrder(null);
-    const { data, error: err } = await supabase.from('orders').select('*').eq('order_number', q).maybeSingle();
-    if (err || !data) { setError('Order not found. Please check your order number and try again.'); setLoading(false); return; }
-    setOrders([data]); setSelectedOrder(data); loadUpdates(data.id); setLoading(false);
+    const { data, error: err } = await supabase.rpc('get_order_by_number', { p_number: q });
+    const order = (data as Order[] | null)?.[0];
+    if (err || !order) { setError('Order not found. Please check your order number and try again.'); setLoading(false); return; }
+    setOrders([order]); setSelectedOrder(order); loadUpdates(order.order_number); setLoading(false);
   }
 
   async function searchByPhone() {
     const phone = phoneQuery.trim(); const email = emailQuery.trim();
     if (!phone && !email) { setError('Please enter your phone number or email'); return; }
     setLoading(true); setError(''); setOrders([]); setSelectedOrder(null);
-    let q = supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (phone && email) q = q.or(`customer_phone.ilike.%${phone}%,customer_email.ilike.%${email}%`);
-    else if (phone) q = q.ilike('customer_phone', `%${phone}%`);
-    else q = q.ilike('customer_email', `%${email}%`);
-    const { data, error: err } = await q;
-    if (err || !data || data.length === 0) { setError('No orders found. Please check your phone number or email.'); setLoading(false); return; }
-    setOrders(data); setSelectedOrder(null); setLoading(false);
+    const { data, error: err } = await supabase.rpc('get_orders_by_contact', { p_phone: phone, p_email: email });
+    const list = (data as Order[] | null) ?? [];
+    if (err || list.length === 0) { setError('No orders found. Please check your phone number or email.'); setLoading(false); return; }
+    setOrders(list); setSelectedOrder(null); setLoading(false);
   }
 
-  async function loadUpdates(orderId: string) {
-    const { data } = await supabase.from('order_updates').select('*').eq('order_id', orderId).order('created_at', { ascending: false });
-    setUpdates(data ?? []);
+  async function loadUpdates(orderNumber: string) {
+    const { data } = await supabase.rpc('get_order_updates_by_number', { p_number: orderNumber });
+    setUpdates((data as OrderUpdate[] | null) ?? []);
   }
 
   async function confirmDelivery(order: Order) {
     setConfirming(true);
-    await supabase.from('orders').update({ customer_confirmed: true, customer_confirmed_at: new Date().toISOString(), order_status: 'delivered', updated_at: new Date().toISOString() }).eq('id', order.id);
-    await supabase.from('order_updates').insert({ order_id: order.id, status: 'delivered', message: `Customer has confirmed receipt of order #${order.order_number}. Order marked as delivered.`, created_by: 'customer' });
+    await supabase.rpc('confirm_order_receipt', { p_access_token: order.access_token });
     setConfirming(false);
     if (searchMode === 'tracking') searchByTracking(order.order_number);
     else searchByPhone();
   }
 
-  function selectOrder(order: Order) { setSelectedOrder(order); setShowFullTimeline(false); loadUpdates(order.id); }
+  function selectOrder(order: Order) { setSelectedOrder(order); setShowFullTimeline(false); loadUpdates(order.order_number); }
 
   const statusConfig = selectedOrder ? (STATUS_CONFIG[selectedOrder.order_status] ?? STATUS_CONFIG.pending) : null;
   const stepIndex = selectedOrder ? STEPS.indexOf(selectedOrder.order_status) : -1;
@@ -182,7 +183,7 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
               </div>
             </div>
 
-            {selectedOrder.order_status === 'ready' && !selectedOrder.customer_confirmed && (
+            {(selectedOrder.order_status === 'ready' || selectedOrder.order_status === 'in_transit') && !selectedOrder.customer_confirmed && (
               <div className="bg-white rounded-2xl border-2 border-blue-200 p-5">
                 <div className="flex items-start gap-3">
                   <div className="bg-blue-100 p-2 rounded-xl flex-shrink-0"><CheckCircle2 size={20} className="text-blue-600" /></div>

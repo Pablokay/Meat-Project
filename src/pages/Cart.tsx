@@ -1,6 +1,6 @@
 
 import { Trash2, ShoppingBag, ChevronRight, } from 'lucide-react';
-import type { CartItem } from '../lib/supabase';
+import { UNIT_LABELS, type CartItem, type Unit } from '../lib/supabase';
 
 type CartProps = {
   items: CartItem[];
@@ -16,8 +16,6 @@ function fmt(n: number) {
 
 export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout, onContinueShopping }: CartProps) {
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-  const deliveryFee = 2500; // Same as in OrderModal
-  const total = subtotal + deliveryFee;
 
   if (items.length === 0) {
     return (
@@ -75,26 +73,25 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-                    <span className="text-gray-600">{item.preparation_type}</span>
-                    {item.portion_size && <span className="text-gray-600">({item.portion_size})</span>}
+                    {item.preparation_types && item.preparation_types.length > 0 && (
+                      <span className="text-gray-600">{item.preparation_types.join(', ')}</span>
+                    )}
                     <span className="text-gray-400">|</span>
-                    <span className="text-gray-600">{fmt(item.unit_price)} per {item.unit}</span>
+                    <span className="text-gray-600">{fmt(item.unit_price)} per {UNIT_LABELS[item.unit as Unit] ?? item.unit}</span>
                   </div>
 
                   {/* Quantity Control */}
                   <div className="mt-4 flex items-center gap-3">
                     <div className="flex items-center gap-2 border border-gray-200 rounded-lg p-1">
                       <button
-                        onClick={() => onUpdateQuantity(item.id, Math.max(0.5, item.quantity - 1))}
+                        onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
                         className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded transition-colors"
                       >
                         −
                       </button>
-                      <span className="w-8 text-center font-semibold text-gray-900">
-                        {item.unit === 'kg' ? item.quantity.toFixed(1) : item.quantity}
-                      </span>
+                      <span className="w-8 text-center font-semibold text-gray-900">{item.quantity}</span>
                       <button
-                        onClick={() => onUpdateQuantity(item.id, item.quantity + (item.unit === 'kg' ? 0.5 : 1))}
+                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
                         className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded transition-colors"
                       >
                         +
@@ -117,15 +114,15 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                   <span>Subtotal ({items.length} items)</span>
                   <span className="font-semibold text-gray-900">{fmt(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-gray-600">
+                <div className="flex justify-between text-sm text-gray-500">
                   <span>Delivery Fee</span>
-                  <span className="font-semibold text-gray-900">{fmt(deliveryFee)}</span>
+                  <span>Calculated at checkout</span>
                 </div>
               </div>
 
               <div className="flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span className="text-blue-700">{fmt(total)}</span>
+                <span>Subtotal</span>
+                <span className="text-blue-700">{fmt(subtotal)}</span>
               </div>
 
               <button
