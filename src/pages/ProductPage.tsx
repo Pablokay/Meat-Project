@@ -77,7 +77,7 @@ export default function ProductPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Image */}
-          <div className="rounded-lg overflow-hidden bg-sand aspect-[4/3] lg:aspect-auto lg:h-[480px]">
+          <div className="rounded-lg overflow-hidden bg-sand aspect-[4/3] lg:aspect-auto lg:h-[600px]">
             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.pexels.com/photos/735968/pexels-photo-735968.jpeg'; }} />
           </div>
 
