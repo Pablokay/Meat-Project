@@ -52,8 +52,9 @@ export default function CheckoutModal({ items, profile, userType, onClose, onSuc
   const [saveAddress, setSaveAddress] = useState(false);
   const proofInputRef = useRef<HTMLInputElement>(null);
 
-  // Delivery OR guest requires admin confirmation before payment.
-  const requiresConfirmation = fulfillment === 'delivery' || !isRegistered;
+  // All orders now pay at checkout (delivery included). The confirm-first gate
+  // has been removed so the account/payment step always shows.
+  const requiresConfirmation = false;
 
   const subtotal = items.reduce((s, i) => s + i.subtotal, 0);
   const deliveryFee = fulfillment === 'delivery' ? (selectedLocation?.fee ?? 0) : 0;

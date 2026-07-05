@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, getProfile, signOutUser, type CartItem, type Profile, type Notification } from '../lib/supabase';
 
@@ -123,6 +123,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await supabase.from('notifications').update({ is_read: true }).in('id', unread);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
+
+  // Scope the cart to the signed-in identity: load the user's saved cart on
+  // login (merging any items a guest added first) and clear it on logout so it
+  // never leaks to the next view or the next person on this browser.
+  const prevUid = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!authReady) return;
+    const uid = session?.user?.id ?? null;
+    const prev = prevUid.current;
+    // On logout the auth listener already runs first, so by now session is null.
+    if (prev !== undefined && prev !== uid && !uid) { setCartItems([]); prevUid.current = uid; return; }
+    if (uid && prev !== uid) {
+      prevUid.current = uid;
+      (async () => {
+        const { data } = await supabase.from('carts').select('items, status').eq('user_id', uid).maybeSingle();
+        const serverItems = ((data?.items as CartItem[] | null) ?? []);
+        if (data?.status === 'active' && serverItems.length) {
+          setCartItems((local) => {
+            const ids = new Set(serverItems.map((i) => i.id));
+            return [...serverItems, ...local.filter((i) => !ids.has(i.id))];
+          });
+        }
+      })();
+      return;
+    }
+    prevUid.current = uid;
+  }, [authReady, session?.user?.id]);
 
   // Cart persistence + server mirror
   useEffect(() => {
