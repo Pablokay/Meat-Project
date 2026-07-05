@@ -10,6 +10,7 @@ export default {
       colors: {
         // Warm eco palette (Homedine-inspired)
         cream: '#f7f4ec',
+        paper: '#fdfbf5',
         sand: '#efe9dc',
         forest: {
           DEFAULT: '#2f4034',

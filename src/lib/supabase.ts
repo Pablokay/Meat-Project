@@ -206,6 +206,34 @@ export type Message = {
   created_at: string;
 };
 
+export type Review = {
+  id: string;
+  user_id: string;
+  livestock_id: string;
+  order_id: string | null;
+  rating: number;
+  comment: string;
+  customer_name: string;
+  created_at: string;
+};
+
+export type Favorite = {
+  id: string;
+  user_id: string;
+  livestock_id: string;
+  created_at: string;
+};
+
+export type SavedAddress = {
+  id: string;
+  user_id: string;
+  label: string;
+  address: string;
+  phone: string;
+  is_default: boolean;
+  created_at: string;
+};
+
 export type CartItem = {
   id: string;
   livestock_id: string;
@@ -288,4 +316,15 @@ export async function signOutUser() {
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
   return data ?? null;
+}
+
+export async function updateProfile(userId: string, fields: Partial<Pick<Profile, 'full_name' | 'phone'>>) {
+  return supabase.from('profiles').update(fields).eq('id', userId);
+}
+
+// Reads a numeric admin setting with a fallback.
+export async function getSettingNumber(key: string, fallback: number): Promise<number> {
+  const { data } = await supabase.from('admin_settings').select('value').eq('key', key).maybeSingle();
+  const n = data ? Number(data.value) : NaN;
+  return Number.isFinite(n) ? n : fallback;
 }

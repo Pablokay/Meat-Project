@@ -70,9 +70,9 @@ export default function PayNowModal({ order, onClose, onPaid }: PayNowModalProps
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-forest-900/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-soft w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-forest-700/10 p-4 flex items-center justify-between">
+      <div className="absolute inset-0 bg-forest-900/50" onClick={onClose} />
+      <div className="relative bg-paper rounded-lg w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-paper border-b border-forest-700/10 p-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-forest-900">Complete Payment</h2>
           <button onClick={onClose} className="text-forest-800/40 hover:text-forest-800"><X size={20} /></button>
         </div>

@@ -31,7 +31,7 @@ export default function ResetPassword({ onDone }: ResetPasswordProps) {
     <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-forest-700 rounded-2xl mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-forest-700 rounded-lg mb-4">
             <ShoppingBag size={26} className="text-cream" />
           </div>
           <h1 className="text-3xl font-bold text-forest-900">Set a new <span className="accent text-forest-600">password</span></h1>

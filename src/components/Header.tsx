@@ -1,10 +1,12 @@
 import { Leaf, Menu, X, Phone, Mail, LogOut, User, ShoppingBag, Bell, Shield } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase, type AdminSetting, type Profile, type Notification } from '../lib/supabase';
 
 type HeaderProps = {
   currentPage: 'shop' | 'track' | 'cart';
   onNavigate: (page: 'shop' | 'track' | 'admin' | 'user' | 'cart') => void;
+  onOpenCart?: () => void;
   profile?: Profile | null;
   userType?: 'guest' | 'registered' | null;
   cartCount?: number;
@@ -13,7 +15,7 @@ type HeaderProps = {
   onLogout?: () => void;
 };
 
-export default function Header({ currentPage, onNavigate, profile, cartCount = 0, notifications = [], onOpenNotifications, onLogout }: HeaderProps) {
+export default function Header({ currentPage, onNavigate, onOpenCart, profile, cartCount = 0, notifications = [], onOpenNotifications, onLogout }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [carePhone, setCarePhone] = useState('');
@@ -49,13 +51,13 @@ export default function Header({ currentPage, onNavigate, profile, cartCount = 0
 
   const navLink = (active: boolean) =>
     `text-sm font-medium transition-colors ${active ? 'text-forest-800' : 'text-forest-800/60 hover:text-forest-800'}`;
-  const iconBtn = 'relative w-10 h-10 flex items-center justify-center rounded-full bg-white border border-forest-700/10 text-forest-800 hover:bg-forest-50 transition-colors shadow-sm';
+  const iconBtn = 'relative w-10 h-10 flex items-center justify-center rounded-full bg-paper border border-forest-700/10 text-forest-800 hover:bg-forest-50 transition-colors';
 
   return (
     <>
       {(carePhone || careEmail) && (
         <div className="bg-forest-800 text-cream/90 text-xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
+          <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
             <div className="flex items-center gap-4">
               {carePhone && <a href={`tel:${carePhone}`} className="flex items-center gap-1.5 hover:text-cream transition-colors"><Phone size={12} /><span>{carePhone}</span></a>}
               {careEmail && <a href={`mailto:${careEmail}`} className="hidden sm:flex items-center gap-1.5 hover:text-cream transition-colors"><Mail size={12} /><span>{careEmail}</span></a>}
@@ -65,16 +67,16 @@ export default function Header({ currentPage, onNavigate, profile, cartCount = 0
         </div>
       )}
 
-      <header className="bg-cream/80 backdrop-blur-md sticky top-0 z-40 border-b border-forest-700/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-cream/80 sticky top-0 z-40 border-b border-forest-700/10">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-[70px] gap-4">
-            <button onClick={() => onNavigate('shop')} className="flex items-center gap-2.5">
+            <Link to="/" className="flex items-center gap-2.5">
               <div className="bg-forest-700 p-2 rounded-full"><Leaf size={20} className="text-cream" strokeWidth={1.75} /></div>
               <div className="text-left leading-none">
                 <p className="text-xl font-bold text-forest-900">Koyan<span className="accent text-forest-600"> Fresh</span></p>
                 <p className="text-[11px] text-sage-600 font-medium tracking-wide">Farm to Table</p>
               </div>
-            </button>
+            </Link>
 
             <nav className="hidden md:flex items-center gap-7">
               <button onClick={() => onNavigate('shop')} className={navLink(currentPage === 'shop')}>Shop</button>
@@ -105,7 +107,7 @@ export default function Header({ currentPage, onNavigate, profile, cartCount = 0
                 </div>
               )}
 
-              <button onClick={() => onNavigate('cart')} className={iconBtn} aria-label="Cart">
+              <button onClick={() => (onOpenCart ? onOpenCart() : onNavigate('cart'))} className={iconBtn} aria-label="Cart">
                 <ShoppingBag size={18} strokeWidth={1.75} />
                 {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-forest-700 text-cream text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{cartCount}</span>}
               </button>
@@ -131,17 +133,17 @@ export default function Header({ currentPage, onNavigate, profile, cartCount = 0
 
         {menuOpen && (
           <div className="md:hidden border-t border-forest-700/10 bg-cream px-4 py-3 space-y-1">
-            <button onClick={() => { onNavigate('shop'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-forest-800 hover:bg-forest-50">Shop</button>
-            <button onClick={() => { onNavigate('track'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-forest-800 hover:bg-forest-50">Track Order</button>
-            <button onClick={() => { onNavigate('cart'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-forest-800 hover:bg-forest-50">Cart ({cartCount})</button>
+            <button onClick={() => { onNavigate('shop'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-forest-800 hover:bg-forest-50">Shop</button>
+            <button onClick={() => { onNavigate('track'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-forest-800 hover:bg-forest-50">Track Order</button>
+            <button onClick={() => { (onOpenCart ? onOpenCart() : onNavigate('cart')); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-forest-800 hover:bg-forest-50">Cart ({cartCount})</button>
             {profile ? (
               <>
-                {profile.is_admin && <button onClick={() => { onNavigate('admin'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-forest-800 hover:bg-forest-50"><Shield size={14} className="inline mr-2" />Admin Dashboard</button>}
-                <button onClick={() => { onNavigate('user'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-forest-800 hover:bg-forest-50"><User size={14} className="inline mr-2" />My Account</button>
-                <button onClick={() => { onLogout?.(); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-clay hover:bg-clay/5"><LogOut size={14} className="inline mr-2" />Logout</button>
+                {profile.is_admin && <button onClick={() => { onNavigate('admin'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-forest-800 hover:bg-forest-50"><Shield size={14} className="inline mr-2" />Admin Dashboard</button>}
+                <button onClick={() => { onNavigate('user'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-forest-800 hover:bg-forest-50"><User size={14} className="inline mr-2" />My Account</button>
+                <button onClick={() => { onLogout?.(); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-clay hover:bg-clay/5"><LogOut size={14} className="inline mr-2" />Logout</button>
               </>
             ) : (
-              <button onClick={() => { onNavigate('user'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium text-forest-700 hover:bg-forest-50"><User size={14} className="inline mr-2" />Sign In</button>
+              <button onClick={() => { onNavigate('user'); setMenuOpen(false); }} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-forest-700 hover:bg-forest-50"><User size={14} className="inline mr-2" />Sign In</button>
             )}
           </div>
         )}

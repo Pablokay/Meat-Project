@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { LogOut, Package, ShoppingBag, Award, Bell, MessageCircle, Send, CircleCheck as CheckCircle2, Truck, CreditCard } from 'lucide-react';
-import { supabase, type Order, type OrderItem, type Notification, type Message, type Profile, type CartItem, type Unit } from '../lib/supabase';
+import { LogOut, Package, ShoppingBag, Award, Bell, MessageCircle, Send, CircleCheck as CheckCircle2, Truck, CreditCard, User, MapPin, Trash2, Plus, Star } from 'lucide-react';
+import { supabase, updateProfile, type Order, type OrderItem, type Notification, type Message, type Profile, type CartItem, type Unit, type SavedAddress } from '../lib/supabase';
 import PayNowModal from '../components/PayNowModal';
+import ReviewModal from '../components/ReviewModal';
 import { useToast } from '../components/Toast';
 
 type UserDashboardProps = {
@@ -30,7 +31,16 @@ function fmt(n: number) {
 
 export default function UserDashboard({ profile, onLogout, onShop, onRefreshProfile, onReorder }: UserDashboardProps) {
   const toast = useToast();
-  const [tab, setTab] = useState<'orders' | 'notifications' | 'chat'>('orders');
+  const [tab, setTab] = useState<'orders' | 'notifications' | 'chat' | 'profile'>('orders');
+  // Profile editing
+  const [editName, setEditName] = useState(profile.full_name);
+  const [editPhone, setEditPhone] = useState(profile.phone);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [newAddress, setNewAddress] = useState('');
+  const [newAddressLabel, setNewAddressLabel] = useState('Home');
+  const [favItems, setFavItems] = useState<{ id: string; livestock_id: string; name: string; image: string }[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
   const [loading, setLoading] = useState(true);
@@ -40,6 +50,7 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [payNowOrder, setPayNowOrder] = useState<Order | null>(null);
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const needsPayment = (o: Order) => o.payment_status !== 'confirmed' && !['awaiting_confirmation', 'cancelled'].includes(o.order_status);
@@ -141,6 +152,39 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
     await supabase.from('notifications').insert({ recipient_type: 'admin', title: 'New message', body: `${profile.full_name || 'A customer'}: ${body.slice(0, 80)}`, type: 'message' });
   }
 
+  const fetchAccount = useCallback(async () => {
+    const [addr, favs] = await Promise.all([
+      supabase.from('saved_addresses').select('*').eq('user_id', profile.id).order('is_default', { ascending: false }),
+      supabase.from('favorites').select('id, livestock_id, livestock:livestock_id(name, image_url)').eq('user_id', profile.id),
+    ]);
+    setAddresses(addr.data ?? []);
+    setFavItems((favs.data ?? []).map((f: any) => ({ id: f.id, livestock_id: f.livestock_id, name: f.livestock?.name ?? 'Item', image: f.livestock?.image_url ?? '' })));
+  }, [profile.id]);
+  useEffect(() => { if (tab === 'profile') fetchAccount(); }, [tab, fetchAccount]);
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    await updateProfile(profile.id, { full_name: editName, phone: editPhone });
+    if (newPassword && newPassword.length >= 8) await supabase.auth.updateUser({ password: newPassword });
+    setSavingProfile(false);
+    setNewPassword('');
+    onRefreshProfile();
+    toast('Profile updated');
+  }
+  async function addAddress() {
+    if (!newAddress.trim()) return;
+    await supabase.from('saved_addresses').insert({ user_id: profile.id, label: newAddressLabel || 'Home', address: newAddress.trim(), is_default: addresses.length === 0 });
+    setNewAddress('');
+    fetchAccount();
+  }
+  async function deleteAddress(id: string) { await supabase.from('saved_addresses').delete().eq('id', id); fetchAccount(); }
+  async function makeDefaultAddress(id: string) {
+    await supabase.from('saved_addresses').update({ is_default: false }).eq('user_id', profile.id);
+    await supabase.from('saved_addresses').update({ is_default: true }).eq('id', id);
+    fetchAccount();
+  }
+  async function removeFavorite(id: string) { await supabase.from('favorites').delete().eq('id', id); fetchAccount(); }
+
   const stats = {
     total: orders.length,
     active: orders.filter((o) => !['delivered', 'cancelled'].includes(o.order_status)).length,
@@ -152,8 +196,8 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
 
   return (
     <div className="min-h-screen bg-cream">
-      <div className="bg-white shadow-sm border-b border-forest-700/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div className="bg-paper border-b border-forest-700/10">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
             <p className="text-gray-600 text-sm">Welcome, {profile.full_name || profile.email}</p>
@@ -165,7 +209,7 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Points + stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-forest-600 to-forest-800 rounded-lg p-4 text-white">
@@ -178,7 +222,7 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
             { label: 'Active', value: stats.active, color: 'text-forest-700' },
             { label: 'Total Spent', value: fmt(stats.spent), color: 'text-green-700' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-lg border border-forest-700/10 p-4">
+            <div key={label} className="bg-paper rounded-lg border border-forest-700/10 p-4">
               <p className="text-xs text-gray-500">{label}</p>
               <p className={`text-lg font-bold mt-1 ${color}`}>{value}</p>
             </div>
@@ -191,8 +235,9 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
             { key: 'orders' as const, label: 'My Orders', icon: Package },
             { key: 'notifications' as const, label: `Notifications${unreadNotif ? ` (${unreadNotif})` : ''}`, icon: Bell },
             { key: 'chat' as const, label: 'Chat with us', icon: MessageCircle },
+            { key: 'profile' as const, label: 'Profile', icon: User },
           ]).map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => { setTab(key); if (key === 'notifications') supabase.from('notifications').update({ is_read: true }).eq('recipient_type', 'user').eq('user_id', profile.id).then(() => fetchNotifications()); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === key ? 'bg-forest-700 text-white' : 'bg-white text-gray-600 border border-forest-700/10 hover:bg-forest-50'}`}>
+            <button key={key} onClick={() => { setTab(key); if (key === 'notifications') supabase.from('notifications').update({ is_read: true }).eq('recipient_type', 'user').eq('user_id', profile.id).then(() => fetchNotifications()); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === key ? 'bg-forest-700 text-white' : 'bg-paper text-gray-600 border border-forest-700/10 hover:bg-forest-50'}`}>
               <Icon size={14} />{label}
             </button>
           ))}
@@ -203,14 +248,14 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
             {loading ? (
               <div className="text-center py-12"><div className="inline-flex w-8 h-8 border-3 border-forest-700/15 border-t-forest-700 rounded-full animate-spin" /></div>
             ) : orders.length === 0 ? (
-              <div className="bg-white rounded-lg border border-forest-700/10 p-12 text-center">
+              <div className="bg-paper rounded-lg border border-forest-700/10 p-12 text-center">
                 <Package size={48} className="mx-auto text-gray-300 mb-4" />
                 <p className="text-gray-600 font-medium">No orders yet</p>
                 <button onClick={onShop} className="mt-3 text-forest-700 text-sm font-semibold">Start shopping</button>
               </div>
             ) : (
               orders.map((order) => (
-                <div key={order.id} className="bg-white rounded-lg border border-forest-700/10 overflow-hidden">
+                <div key={order.id} className="bg-paper rounded-lg border border-forest-700/10 overflow-hidden">
                   <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-forest-50" onClick={() => { setExpanded(expanded === order.id ? null : order.id); loadItems(order.id, order.order_number); }}>
                     <div>
                       <p className="font-semibold text-gray-900">Order #{order.order_number}</p>
@@ -265,6 +310,9 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
                         <button onClick={() => reorder(order)} className="flex items-center gap-1.5 text-sm font-semibold text-forest-700 border border-forest-700/20 hover:bg-forest-50 rounded-lg px-3 py-1.5">Reorder</button>
+                        {order.order_status === 'delivered' && (
+                          <button onClick={() => setReviewOrder(order)} className="flex items-center gap-1.5 text-sm font-semibold text-forest-700 border border-forest-700/20 hover:bg-forest-50 rounded-lg px-3 py-1.5"><Star size={14} />Leave a review</button>
+                        )}
                         {cancellable(order) && (
                           <button onClick={() => cancelOrder(order)} className="flex items-center gap-1.5 text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5">Cancel order</button>
                         )}
@@ -278,7 +326,7 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
         )}
 
         {tab === 'notifications' && (
-          <div className="bg-white rounded-lg border border-forest-700/10 divide-y divide-forest-700/5">
+          <div className="bg-paper rounded-lg border border-forest-700/10 divide-y divide-forest-700/5">
             {notifications.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-12">No notifications yet.</p>
             ) : notifications.map((n) => (
@@ -292,7 +340,7 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
         )}
 
         {tab === 'chat' && (
-          <div className="bg-white rounded-lg border border-forest-700/10 flex flex-col h-[500px]">
+          <div className="bg-paper rounded-lg border border-forest-700/10 flex flex-col h-[500px]">
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-12">Start a conversation with our team.</p>
@@ -312,10 +360,78 @@ export default function UserDashboard({ profile, onLogout, onShop, onRefreshProf
             </div>
           </div>
         )}
+        {tab === 'profile' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Personal details */}
+            <div className="bg-paper rounded-lg border border-forest-700/10 p-5">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4"><User size={16} />Personal Details</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Full Name</label>
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Phone</label>
+                  <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">New Password <span className="font-normal text-gray-400">(leave blank to keep)</span></label>
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 8 characters" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-500" />
+                </div>
+                <button onClick={saveProfile} disabled={savingProfile} className="bg-forest-700 hover:bg-forest-800 disabled:bg-sage-400 text-cream px-4 py-2 rounded-lg text-sm font-semibold">{savingProfile ? 'Saving...' : 'Save Changes'}</button>
+              </div>
+            </div>
+
+            {/* Saved addresses */}
+            <div className="bg-paper rounded-lg border border-forest-700/10 p-5">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4"><MapPin size={16} />Saved Addresses</h3>
+              <div className="space-y-2 mb-3">
+                {addresses.length === 0 ? <p className="text-sm text-gray-400">No saved addresses yet.</p> : addresses.map((a) => (
+                  <div key={a.id} className="flex items-start justify-between gap-2 border border-gray-100 rounded-lg p-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{a.label}{a.is_default && <span className="ml-2 text-[10px] bg-forest-100 text-forest-700 px-1.5 py-0.5 rounded-full">Default</span>}</p>
+                      <p className="text-xs text-gray-500">{a.address}</p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {!a.is_default && <button onClick={() => makeDefaultAddress(a.id)} className="text-[11px] text-forest-700 font-semibold hover:underline">Set default</button>}
+                      <button onClick={() => deleteAddress(a.id)} className="p-1 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input value={newAddressLabel} onChange={(e) => setNewAddressLabel(e.target.value)} placeholder="Label" className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-500" />
+                <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="Add a new address" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-500" />
+                <button onClick={addAddress} className="bg-forest-700 hover:bg-forest-800 text-cream px-3 rounded-lg"><Plus size={16} /></button>
+              </div>
+            </div>
+
+            {/* Wishlist */}
+            <div className="bg-paper rounded-lg border border-forest-700/10 p-5 lg:col-span-2">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4"><Star size={16} />Wishlist</h3>
+              {favItems.length === 0 ? <p className="text-sm text-gray-400">No saved items yet. Tap the heart on any product.</p> : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {favItems.map((f) => (
+                    <div key={f.id} className="border border-gray-100 rounded-lg overflow-hidden">
+                      <div className="aspect-[4/3] bg-sand"><img src={f.image} alt={f.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /></div>
+                      <div className="p-2 flex items-center justify-between gap-1">
+                        <span className="text-xs font-semibold text-gray-800 truncate">{f.name}</span>
+                        <button onClick={() => removeFavorite(f.id)} className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {payNowOrder && (
         <PayNowModal order={payNowOrder} onClose={() => setPayNowOrder(null)} onPaid={fetchOrders} />
+      )}
+      {reviewOrder && (
+        <ReviewModal order={reviewOrder} onClose={() => setReviewOrder(null)} onDone={() => {}} />
       )}
     </div>
   );

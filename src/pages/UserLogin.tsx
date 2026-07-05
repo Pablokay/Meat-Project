@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, User, ShoppingBag, AlertCircle, CheckCircle, AtSign } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, User, AlertCircle, CheckCircle, AtSign, Leaf, ArrowLeft } from 'lucide-react';
 import { signInUser, signUpUser, sendPasswordReset } from '../lib/supabase';
 
 type UserLoginProps = {
@@ -9,7 +10,7 @@ type UserLoginProps = {
 
 export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
-  const [identifier, setIdentifier] = useState(''); // email or phone
+  const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -19,250 +20,139 @@ export default function UserLogin({ onLogin, onGuestCheckout }: UserLoginProps) 
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  function reset() {
-    setError('');
-    setSuccess('');
-  }
+  const reset = () => { setError(''); setSuccess(''); };
 
   async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    reset();
-    if (!identifier || !password) {
-      setError('Please enter your email/phone and password');
-      return;
-    }
+    e.preventDefault(); reset();
+    if (!identifier || !password) { setError('Please enter your email/phone and password'); return; }
     setLoading(true);
     const { error: err } = await signInUser(identifier, password);
     setLoading(false);
-    if (err) {
-      setError(err.message || 'Invalid credentials');
-      return;
-    }
+    if (err) { setError(err.message || 'Invalid credentials'); return; }
     onLogin();
   }
 
   async function handleSignup(e: React.FormEvent) {
-    e.preventDefault();
-    reset();
-    if (!name || !identifier || !password || !confirmPassword) {
-      setError('Please fill in all fields');
-      return;
-    }
-    if (name.trim().length < 2) {
-      setError('Name must be at least 2 characters');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    e.preventDefault(); reset();
+    if (!name || !identifier || !password || !confirmPassword) { setError('Please fill in all fields'); return; }
+    if (name.trim().length < 2) { setError('Name must be at least 2 characters'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
     setLoading(true);
     const { data, error: err } = await signUpUser({ identifier, password, fullName: name.trim() });
     setLoading(false);
-    if (err) {
-      setError(err.message || 'Signup failed');
-      return;
-    }
-    // If email confirmation is required there is no active session yet.
-    if (data.session) {
-      onLogin();
-    } else {
-      setSuccess('Account created! Check your email/phone to confirm, then sign in.');
-      setMode('login');
-    }
+    if (err) { setError(err.message || 'Signup failed'); return; }
+    if (data.session) onLogin();
+    else { setSuccess('Account created! Check your email/phone to confirm, then sign in.'); setMode('login'); }
   }
 
   async function handleForgot(e: React.FormEvent) {
-    e.preventDefault();
-    reset();
-    if (!email) {
-      setError('Enter the email associated with your account');
-      return;
-    }
+    e.preventDefault(); reset();
+    if (!email) { setError('Enter the email associated with your account'); return; }
     setLoading(true);
     const { error: err } = await sendPasswordReset(email);
     setLoading(false);
-    if (err) {
-      setError(err.message || 'Could not send reset email');
-      return;
-    }
+    if (err) { setError(err.message || 'Could not send reset email'); return; }
     setSuccess('Password reset link sent. Check your email.');
   }
 
-  const inputCls =
-    'w-full pl-9 pr-10 py-2.5 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:border-forest-600 transition-colors';
+  const inputCls = 'w-full pl-10 pr-10 py-3 bg-paper border border-forest-700/15 rounded-lg text-sm focus:outline-none focus:border-forest-500 transition-colors';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream to-sage-100 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-forest-700 rounded-2xl mb-4 shadow-lg">
-            <ShoppingBag size={28} className="text-white" />
+    <div className="min-h-screen bg-cream lg:grid lg:grid-cols-2">
+      {/* Left image panel */}
+      <div className="relative hidden lg:block overflow-hidden">
+        <img src="https://images.pexels.com/photos/735968/pexels-photo-735968.jpeg" alt="Farm" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-forest-900/85 via-forest-900/40 to-forest-900/50" />
+        <div className="relative h-full flex flex-col justify-between p-12 text-cream">
+          <Link to="/" className="inline-flex items-center gap-2.5 w-fit">
+            <div className="bg-forest-700 p-2 rounded-full"><Leaf size={20} className="text-cream" strokeWidth={1.75} /></div>
+            <span className="text-xl font-bold">Koyan<span className="accent"> Fresh</span></span>
+          </Link>
+          <div>
+            <h2 className="font-serif text-5xl leading-[1.05]">Fresh from the <span className="italic">farm</span>,<br />to your table.</h2>
+            <p className="text-cream/70 mt-4 max-w-sm">Create an account to track orders, save addresses, earn reward points, and reorder in a tap.</p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Koyan Fresh</h1>
-          <p className="text-gray-600 text-sm mt-1">Premium Livestock Delivery</p>
+          <p className="text-cream/50 text-sm">Trusted by families & kitchens across Nigeria.</p>
         </div>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+      {/* Right form */}
+      <div className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-forest-800/50 hover:text-forest-800 font-medium mb-6"><ArrowLeft size={15} />Back to shop</Link>
+
           {mode !== 'forgot' && (
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => { setMode('login'); reset(); }}
-                className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${mode === 'login' ? 'bg-forest-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => { setMode('signup'); reset(); }}
-                className={`flex-1 py-2.5 rounded-lg font-semibold transition-colors ${mode === 'signup' ? 'bg-forest-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Create Account
-              </button>
+            <div className="flex gap-2 mb-6 bg-sand/60 p-1 rounded-full">
+              <button onClick={() => { setMode('login'); reset(); }} className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-forest-700 text-cream' : 'text-forest-800/60'}`}>Sign In</button>
+              <button onClick={() => { setMode('signup'); reset(); }} className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-forest-700 text-cream' : 'text-forest-800/60'}`}>Create Account</button>
             </div>
           )}
 
-          <button
-            onClick={onGuestCheckout}
-            className="w-full py-2.5 rounded-lg font-semibold transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 mb-4 text-sm"
-          >
-            Continue as Guest
-          </button>
+          <h1 className="text-3xl font-bold text-forest-900">
+            {mode === 'login' ? <>Welcome <span className="accent text-forest-600">back</span></> : mode === 'signup' ? <>Create your <span className="accent text-forest-600">account</span></> : <>Reset <span className="accent text-forest-600">password</span></>}
+          </h1>
+          <p className="text-forest-800/50 text-sm mt-1 mb-6">{mode === 'login' ? 'Sign in to continue your order.' : mode === 'signup' ? 'Join for points, faster checkout & tracking.' : 'We\'ll email you a reset link.'}</p>
 
           {mode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email or Phone</label>
-                <div className="relative">
-                  <AtSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={identifier}
-                    onChange={(e) => { setIdentifier(e.target.value); reset(); }}
-                    className={inputCls}
-                    placeholder="you@example.com or 0801 234 5678"
-                    autoComplete="username"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); reset(); }}
-                    className={inputCls}
-                    placeholder="Enter password"
-                    autoComplete="current-password"
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                <button type="button" onClick={() => { setMode('forgot'); reset(); }} className="text-xs text-forest-700 hover:text-forest-700 font-medium mt-1.5">
-                  Forgot password?
-                </button>
-              </div>
-
-              {error && <ErrorBox msg={error} />}
-              {success && <SuccessBox msg={success} />}
-
-              <button type="submit" disabled={loading} className="w-full bg-forest-700 hover:bg-forest-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm active:scale-[0.98]">
-                {loading ? 'Signing In...' : 'Sign In'}
-              </button>
+              <Field icon={<AtSign size={16} />}><input type="text" value={identifier} onChange={(e) => { setIdentifier(e.target.value); reset(); }} className={inputCls} placeholder="Email or phone" autoComplete="username" /></Field>
+              <Field icon={<Lock size={16} />} trailing={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-forest-800/40 hover:text-forest-800">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>}>
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => { setPassword(e.target.value); reset(); }} className={inputCls} placeholder="Password" autoComplete="current-password" />
+              </Field>
+              <button type="button" onClick={() => { setMode('forgot'); reset(); }} className="text-xs text-forest-600 hover:underline font-medium">Forgot password?</button>
+              {error && <ErrorBox msg={error} />}{success && <SuccessBox msg={success} />}
+              <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Signing In...' : 'Sign In'}</button>
             </form>
           )}
 
           {mode === 'signup' && (
             <form onSubmit={handleSignup} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Full Name</label>
-                <div className="relative">
-                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={name} onChange={(e) => { setName(e.target.value); reset(); }} className={inputCls} placeholder="John Doe" autoComplete="name" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email or Phone</label>
-                <div className="relative">
-                  <AtSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={identifier} onChange={(e) => { setIdentifier(e.target.value); reset(); }} className={inputCls} placeholder="you@example.com or 0801 234 5678" autoComplete="username" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => { setPassword(e.target.value); reset(); }} className={inputCls} placeholder="Min 8 characters" autoComplete="new-password" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirm Password</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); reset(); }} className={inputCls} placeholder="Re-enter password" autoComplete="new-password" />
-                </div>
-              </div>
-
-              {error && <ErrorBox msg={error} />}
-              {success && <SuccessBox msg={success} />}
-
-              <button type="submit" disabled={loading} className="w-full bg-forest-700 hover:bg-forest-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm active:scale-[0.98]">
-                {loading ? 'Creating Account...' : 'Create Account'}
-              </button>
+              <Field icon={<User size={16} />}><input type="text" value={name} onChange={(e) => { setName(e.target.value); reset(); }} className={inputCls} placeholder="Full name" autoComplete="name" /></Field>
+              <Field icon={<AtSign size={16} />}><input type="text" value={identifier} onChange={(e) => { setIdentifier(e.target.value); reset(); }} className={inputCls} placeholder="Email or phone" autoComplete="username" /></Field>
+              <Field icon={<Lock size={16} />} trailing={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-forest-800/40 hover:text-forest-800">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>}>
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => { setPassword(e.target.value); reset(); }} className={inputCls} placeholder="Password (min 8)" autoComplete="new-password" />
+              </Field>
+              <Field icon={<Lock size={16} />}><input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); reset(); }} className={inputCls} placeholder="Confirm password" autoComplete="new-password" /></Field>
+              {error && <ErrorBox msg={error} />}{success && <SuccessBox msg={success} />}
+              <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Creating...' : 'Create Account'}</button>
             </form>
           )}
 
           {mode === 'forgot' && (
             <form onSubmit={handleForgot} className="space-y-4">
-              <p className="text-sm text-gray-600">Enter your account email and we'll send a reset link.</p>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email Address</label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }} className={inputCls} placeholder="you@example.com" />
-                </div>
-              </div>
-              {error && <ErrorBox msg={error} />}
-              {success && <SuccessBox msg={success} />}
-              <button type="submit" disabled={loading} className="w-full bg-forest-700 hover:bg-forest-800 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
-                {loading ? 'Sending...' : 'Send Reset Link'}
-              </button>
-              <button type="button" onClick={() => { setMode('login'); reset(); }} className="w-full text-sm text-gray-600 hover:text-gray-800 font-medium">
-                Back to sign in
-              </button>
+              <Field icon={<Mail size={16} />}><input type="email" value={email} onChange={(e) => { setEmail(e.target.value); reset(); }} className={inputCls} placeholder="you@example.com" /></Field>
+              {error && <ErrorBox msg={error} />}{success && <SuccessBox msg={success} />}
+              <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Sending...' : 'Send Reset Link'}</button>
+              <button type="button" onClick={() => { setMode('login'); reset(); }} className="w-full text-sm text-forest-800/60 hover:text-forest-800 font-medium">Back to sign in</button>
             </form>
           )}
 
-          <p className="text-xs text-gray-600 text-center mt-4">Your data is secure and encrypted</p>
+          {mode !== 'forgot' && (
+            <>
+              <div className="flex items-center gap-3 my-5"><div className="flex-1 h-px bg-forest-700/10" /><span className="text-xs text-forest-800/40">or</span><div className="flex-1 h-px bg-forest-700/10" /></div>
+              <button onClick={onGuestCheckout} className="btn-outline w-full">Continue as Guest</button>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ErrorBox({ msg }: { msg: string }) {
+function Field({ icon, trailing, children }: { icon: React.ReactNode; trailing?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 flex items-center gap-2">
-      <AlertCircle size={16} className="text-red-600 flex-shrink-0" />
-      <p className="text-sm text-red-600">{msg}</p>
+    <div className="relative">
+      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-forest-800/40">{icon}</span>
+      {children}
+      {trailing && <span className="absolute right-3.5 top-1/2 -translate-y-1/2">{trailing}</span>}
     </div>
   );
 }
 
+function ErrorBox({ msg }: { msg: string }) {
+  return <div className="bg-clay/10 border border-clay/20 rounded-lg px-3 py-2.5 flex items-center gap-2"><AlertCircle size={16} className="text-clay flex-shrink-0" /><p className="text-sm text-clay">{msg}</p></div>;
+}
 function SuccessBox({ msg }: { msg: string }) {
-  return (
-    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 flex items-center gap-2">
-      <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
-      <p className="text-sm text-green-600">{msg}</p>
-    </div>
-  );
+  return <div className="bg-forest-50 border border-forest-700/15 rounded-lg px-3 py-2.5 flex items-center gap-2"><CheckCircle size={16} className="text-forest-700 flex-shrink-0" /><p className="text-sm text-forest-700">{msg}</p></div>;
 }

@@ -1,314 +1,109 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import Shop from './pages/Shop';
+import type { ReactElement } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import RootLayout from './layouts/RootLayout';
+import AdminLayout from './layouts/AdminLayout';
+import HomePage from './pages/HomePage';
+import ShopPage from './pages/ShopPage';
+import ProductPage from './pages/ProductPage';
 import TrackOrder from './pages/TrackOrder';
-import AdminLogin from './pages/AdminLogin';
-import Admin from './pages/Admin';
-import UserLogin from './pages/UserLogin';
 import UserDashboard from './pages/UserDashboard';
-import Cart from './pages/Cart';
-import CheckoutModal from './components/CheckoutModal';
-import OrderSuccess from './components/OrderSuccess';
+import UserLogin from './pages/UserLogin';
+import OverviewSection from './pages/admin/OverviewSection';
+import OrdersSection from './pages/admin/OrdersSection';
+import PaymentsSection from './pages/admin/PaymentsSection';
+import LivestockSection from './pages/admin/LivestockSection';
+import CustomersSection from './pages/admin/CustomersSection';
+import CartsSection from './pages/admin/CartsSection';
+import ChatSection from './pages/admin/ChatSection';
+import LogisticsSection from './pages/admin/LogisticsSection';
+import BlastSection from './pages/admin/BlastSection';
+import SettingsSection from './pages/admin/SettingsSection';
+import PasswordSection from './pages/admin/PasswordSection';
 import ResetPassword from './pages/ResetPassword';
-import BottomNav from './components/BottomNav';
-import { supabase, getProfile, signOutUser, type CartItem, type Profile, type Notification } from './lib/supabase';
+import ScrollToTop from './components/ScrollToTop';
+import { useApp } from './providers/AppProvider';
 
-type Page = 'shop' | 'track' | 'admin' | 'admin-login' | 'user-login' | 'user-dashboard' | 'cart';
-type UserType = 'guest' | 'registered' | null;
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-cream">
+      <div className="w-8 h-8 border-[3px] border-forest-100 border-t-forest-700 rounded-full animate-spin" />
+    </div>
+  );
+}
 
-const CART_KEY = 'koyan_cart';
-const LOGIN_AT_KEY = 'koyan_login_at';
-const MAX_SESSION_MS = 24 * 60 * 60 * 1000; // 24 hours
+function RequireAuth({ children }: { children: ReactElement }) {
+  const { session } = useApp();
+  return session ? children : <Navigate to="/login" replace />;
+}
 
-function loadCart(): CartItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
-  } catch {
-    return [];
-  }
+function RequireAdmin({ children }: { children: ReactElement }) {
+  const { isAdmin, session } = useApp();
+  if (isAdmin) return children;
+  return <Navigate to={session ? '/' : '/login'} replace />;
+}
+
+function LoginRoute() {
+  const nav = useNavigate();
+  const { session, profile, profileReady } = useApp();
+  // Once authenticated and the profile is resolved, redirect declaratively.
+  // The App-level Spinner covers the profile-loading window, so there is no
+  // flash of the home page between sign-in and landing on the right view.
+  if (session && profileReady) return <Navigate to={profile?.is_admin ? '/admin' : '/'} replace />;
+  return <UserLogin onLogin={() => {}} onGuestCheckout={() => nav('/shop')} />;
+}
+
+function AccountPage() {
+  const app = useApp();
+  const nav = useNavigate();
+  if (!app.profile) return <Spinner />;
+  return (
+    <UserDashboard
+      profile={app.profile}
+      onLogout={() => { nav('/login', { replace: true }); app.logout(); }}
+      onShop={() => nav('/shop')}
+      onRefreshProfile={app.refreshProfile}
+      onReorder={(items) => { items.forEach(app.addToCart); app.setCartOpen(true); }}
+    />
+  );
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>('shop');
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [profileReady, setProfileReady] = useState(false);
-  const [userType, setUserType] = useState<UserType>(null);
-  const [cartItems, setCartItems] = useState<CartItem[]>(loadCart);
-  const [checkingOut, setCheckingOut] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [successOrder, setSuccessOrder] = useState<{ orderNumber: string; accessToken: string; requiresConfirmation: boolean } | null>(null);
-  const [recovery, setRecovery] = useState(false);
+  const { authReady, profileReady, session, recovery, setRecovery } = useApp();
+  const nav = useNavigate();
 
-  const isAdmin = !!profile?.is_admin;
-
-  // ---- Session / auth ----------------------------------------------------
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
-      setSession(s);
-      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
-      if (event === 'SIGNED_IN' && s) {
-        if (!localStorage.getItem(LOGIN_AT_KEY)) {
-          localStorage.setItem(LOGIN_AT_KEY, String(Date.now()));
-        }
-        setUserType('registered');
-      }
-      if (event === 'SIGNED_OUT') {
-        localStorage.removeItem(LOGIN_AT_KEY);
-        setProfile(null);
-      }
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  // Load profile whenever the session's user changes.
-  useEffect(() => {
-    if (session?.user) {
-      if (!localStorage.getItem(LOGIN_AT_KEY)) localStorage.setItem(LOGIN_AT_KEY, String(Date.now()));
-      setProfileReady(false);
-      getProfile(session.user.id).then((p) => { setProfile(p); setProfileReady(true); });
-      setUserType('registered');
-    } else {
-      setProfile(null);
-      setProfileReady(true);
-    }
-  }, [session?.user?.id]);
-
-  // Enforce a hard 24h session cap regardless of token refresh.
-  useEffect(() => {
-    if (!session) return;
-    const check = () => {
-      const loginAt = Number(localStorage.getItem(LOGIN_AT_KEY) || 0);
-      if (loginAt && Date.now() - loginAt > MAX_SESSION_MS) {
-        signOutUser();
-        localStorage.removeItem(LOGIN_AT_KEY);
-      }
-    };
-    check();
-    const id = setInterval(check, 60 * 1000);
-    return () => clearInterval(id);
-  }, [session]);
-
-  // ---- Notifications (in-app bell) --------------------------------------
-  const refreshNotifications = useCallback(async () => {
-    if (isAdmin) {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('recipient_type', 'admin')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      setNotifications(data ?? []);
-    } else if (session?.user) {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('recipient_type', 'user')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      setNotifications(data ?? []);
-    } else {
-      setNotifications([]);
-    }
-  }, [isAdmin, session?.user?.id]);
-
-  useEffect(() => {
-    refreshNotifications();
-    const id = setInterval(refreshNotifications, 30 * 1000);
-    return () => clearInterval(id);
-  }, [refreshNotifications]);
-
-  async function markNotificationsRead() {
-    const unread = notifications.filter((n) => !n.is_read).map((n) => n.id);
-    if (unread.length === 0) return;
-    await supabase.from('notifications').update({ is_read: true }).in('id', unread);
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  }
-
-  // ---- Cart --------------------------------------------------------------
-  useEffect(() => {
-    localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
-    // Mirror to server for logged-in users (powers admin abandoned-cart view).
-    if (session?.user && cartItems.length >= 0) {
-      const total = cartItems.reduce((s, i) => s + i.subtotal, 0);
-      supabase.from('carts').upsert(
-        {
-          user_id: session.user.id,
-          user_name: profile?.full_name ?? '',
-          user_email: profile?.email ?? session.user.email ?? '',
-          user_phone: profile?.phone ?? '',
-          items: cartItems,
-          total,
-          status: cartItems.length > 0 ? 'active' : 'checked_out',
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      ).then(() => {});
-    }
-  }, [cartItems, session?.user?.id]);
-
-  function addToCart(item: CartItem) {
-    setCartItems((prev) => [...prev, item]);
-  }
-  function updateCartQuantity(id: string, quantity: number) {
-    setCartItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, quantity, subtotal: i.unit_price * quantity } : i))
-    );
-  }
-  function removeCartItem(id: string) {
-    setCartItems((prev) => prev.filter((i) => i.id !== id));
-  }
-  function clearCart() {
-    setCartItems([]);
-  }
-
-  // ---- Routing -----------------------------------------------------------
-  const applyHash = useCallback(
-    (h: string) => {
-      if (h === 'admin') setPage(isAdmin ? 'admin' : 'admin-login');
-      else if (h === 'track') setPage('track');
-      else if (h === 'cart') setPage('cart');
-      else if (h === 'user') setPage(session?.user ? 'user-dashboard' : 'user-login');
-      else setPage('shop');
-    },
-    [isAdmin, session?.user?.id]
-  );
-
-  useEffect(() => {
-    if (!authReady) return;
-    applyHash(window.location.hash.replace('#', ''));
-    const onHash = () => applyHash(window.location.hash.replace('#', ''));
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, [authReady, applyHash]);
-
-  const navigate = (p: 'shop' | 'track' | 'admin' | 'user' | 'cart') => {
-    window.location.hash = p === 'shop' ? '' : p;
-    if (p === 'admin') setPage(isAdmin ? 'admin' : 'admin-login');
-    else if (p === 'user') setPage(session?.user ? 'user-dashboard' : 'user-login');
-    else setPage(p);
-  };
-
-  const handleAdminLogin = async () => {
-    if (session?.user) setProfile(await getProfile(session.user.id));
-    setPage('admin');
-    window.location.hash = 'admin';
-  };
-
-  const handleUserLogin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const prof = user ? await getProfile(user.id) : null;
-    setProfile(prof);
-    setUserType('registered');
-    // Admins go straight to the Staff Console; customers to the shop.
-    if (prof?.is_admin) {
-      setPage('admin');
-      window.location.hash = 'admin';
-    } else {
-      setPage('shop');
-      window.location.hash = '';
-    }
-  };
-
-  const handleGuestCheckout = () => {
-    setUserType('guest');
-    setPage('shop');
-    window.location.hash = '';
-  };
-
-  const handleLogout = async () => {
-    await signOutUser();
-    setProfile(null);
-    setUserType(null);
-    setPage('shop');
-    window.location.hash = '';
-  };
-
-  // Wait for both the session AND (if signed in) the profile before routing,
-  // so admins never briefly see the storefront before the console loads.
-  if (!authReady || (session?.user && !profileReady)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-cream">
-        <div className="w-8 h-8 border-[3px] border-forest-100 border-t-forest-700 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (recovery) return <ResetPassword onDone={() => { setRecovery(false); setPage('shop'); window.location.hash = ''; }} />;
-
-  if (page === 'admin-login') return <AdminLogin onLogin={handleAdminLogin} />;
-  if (page === 'admin' && isAdmin) return <Admin onLogout={handleLogout} onNotify={refreshNotifications} />;
-  if (page === 'admin' && !isAdmin) return <AdminLogin onLogin={handleAdminLogin} />;
-  if (page === 'user-login') return <UserLogin onLogin={handleUserLogin} onGuestCheckout={handleGuestCheckout} />;
-  if (page === 'user-dashboard' && profile) {
-    return <UserDashboard profile={profile} onLogout={handleLogout} onShop={() => navigate('shop')} onRefreshProfile={async () => session?.user && setProfile(await getProfile(session.user.id))} onReorder={(items) => { items.forEach(addToCart); navigate('cart'); }} />;
-  }
-
-  const cartCount = cartItems.length;
+  if (!authReady || (session?.user && !profileReady)) return <Spinner />;
+  if (recovery) return <ResetPassword onDone={() => { setRecovery(false); nav('/'); }} />;
 
   return (
-    <div className="min-h-screen flex flex-col pb-16 md:pb-0">
-      <Header
-        currentPage={page === 'track' ? 'track' : page === 'cart' ? 'cart' : 'shop'}
-        onNavigate={navigate}
-        profile={profile}
-        userType={userType}
-        cartCount={cartCount}
-        notifications={notifications}
-        onOpenNotifications={markNotificationsRead}
-        onLogout={handleLogout}
-      />
-      <main className="flex-1">
-        {page === 'track' ? (
-          <TrackOrder />
-        ) : page === 'cart' ? (
-          <Cart
-            items={cartItems}
-            onUpdateQuantity={updateCartQuantity}
-            onRemoveItem={removeCartItem}
-            onCheckout={() => setCheckingOut(true)}
-            onContinueShopping={() => navigate('shop')}
-          />
-        ) : (
-          <Shop onNavigateToTrack={() => navigate('track')} onAddToCart={addToCart} onGoToCart={() => navigate('cart')} />
-        )}
-      </main>
-      <Footer />
-
-      <BottomNav currentPage={page === 'track' ? 'track' : page === 'cart' ? 'cart' : 'shop'} onNavigate={navigate} cartCount={cartCount} isLoggedIn={!!profile} />
-
-      {checkingOut && (
-        <CheckoutModal
-          items={cartItems}
-          profile={profile}
-          userType={userType}
-          onClose={() => setCheckingOut(false)}
-          onSuccess={(orderNumber, accessToken, requiresConfirmation) => {
-            setCheckingOut(false);
-            clearCart();
-            refreshNotifications();
-            setSuccessOrder({ orderNumber, accessToken, requiresConfirmation });
-          }}
-        />
-      )}
-
-      {successOrder && (
-        <OrderSuccess
-          orderNumber={successOrder.orderNumber}
-          accessToken={successOrder.accessToken}
-          requiresConfirmation={successOrder.requiresConfirmation}
-          onTrackOrder={() => { setSuccessOrder(null); navigate('track'); }}
-          onClose={() => { setSuccessOrder(null); navigate('shop'); }}
-        />
-      )}
-    </div>
+    <>
+    <ScrollToTop />
+    <Routes>
+      <Route element={<RootLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="shop" element={<ShopPage />} />
+        <Route path="product/:id" element={<ProductPage />} />
+        <Route path="track" element={<TrackOrder />} />
+        <Route path="account" element={<RequireAuth><AccountPage /></RequireAuth>} />
+      </Route>
+      <Route path="login" element={<LoginRoute />} />
+      <Route path="admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
+        <Route index element={<Navigate to="/admin/overview" replace />} />
+        <Route path="overview" element={<OverviewSection />} />
+        <Route path="orders" element={<OrdersSection />} />
+        <Route path="payments" element={<PaymentsSection />} />
+        <Route path="livestock" element={<LivestockSection />} />
+        <Route path="customers" element={<CustomersSection />} />
+        <Route path="carts" element={<CartsSection />} />
+        <Route path="chat" element={<ChatSection />} />
+        <Route path="logistics" element={<LogisticsSection />} />
+        <Route path="blast" element={<BlastSection />} />
+        <Route path="settings" element={<SettingsSection />} />
+        <Route path="password" element={<PasswordSection />} />
+        <Route path="*" element={<Navigate to="/admin/overview" replace />} />
+      </Route>
+      <Route path="reset-password" element={<ResetPassword onDone={() => nav('/')} />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+    </>
   );
 }

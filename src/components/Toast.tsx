@@ -30,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 pointer-events-none">
         {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto flex items-center gap-2.5 bg-white shadow-soft border border-forest-700/10 rounded-full pl-4 pr-3 py-2.5 animate-[toastIn_0.2s_ease-out]">
+          <div key={t.id} className="pointer-events-auto flex items-center gap-2.5 bg-paper border border-forest-700/10 rounded-full pl-4 pr-3 py-2.5 animate-[toastIn_0.2s_ease-out]">
             {ICON[t.kind]}
             <span className="text-sm font-medium text-forest-900">{t.message}</span>
             <button onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))} className="text-forest-800/40 hover:text-forest-800"><X size={14} /></button>

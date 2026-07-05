@@ -20,8 +20,8 @@ export default function OrderSuccess({ orderNumber, requiresConfirmation, onTrac
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-forest-900/50 backdrop-blur-sm" />
-      <div className="relative bg-white rounded-lg shadow-soft max-w-sm w-full p-7 text-center">
+      <div className="absolute inset-0 bg-forest-900/50" />
+      <div className="relative bg-paper rounded-lg max-w-sm w-full p-7 text-center">
         <div className="flex justify-center mb-4">
           <div className="bg-forest-50 p-4 rounded-full relative">
             <CheckCircle2 size={40} className="text-forest-700" />

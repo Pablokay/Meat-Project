@@ -79,7 +79,7 @@ export default function PasswordManager({ onPasswordChange }: PasswordManagerPro
 
   return (
     <div className="max-w-2xl">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
             <Lock size={20} className="text-blue-700" />
