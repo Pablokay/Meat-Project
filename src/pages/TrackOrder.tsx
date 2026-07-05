@@ -144,9 +144,6 @@ export default function TrackOrder({ initialOrderNumber }: TrackOrderProps) {
       {/* Hero */}
       <section className="relative w-full bg-gradient-to-br from-forest-800 to-forest-900 pt-14 pb-28 text-center overflow-hidden">
         <div className="max-w-2xl mx-auto px-4 relative">
-          <span className="inline-flex items-center gap-2 tag-pill bg-cream/10 text-cream border-cream/15">
-            <Package size={13} /> Order Tracking
-          </span>
           <h1 className="mt-4 text-4xl sm:text-5xl font-bold text-cream leading-tight">Track your <span className="accent text-sage-300">order</span></h1>
           <p className="text-cream/60 mt-3 text-sm">Search by tracking ID, or find every order with your phone or email.</p>
         </div>
